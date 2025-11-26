@@ -1,0 +1,20 @@
+version: '3.8'
+
+
+services:
+    -sandbox_vscode:   
+      build:
+        context: './web_vscode/'
+        dockerfile: Dockerfile
+      container_name: sandbox_vscode
+      image: 921646896924.dkr.ecr.ap-southeast-2.amazonaws.com/frontend_vs_code
+      environment:
+        - APP_ENV=production
+    # -vscode_image:
+    #   build:
+    #     context: './vs_code_config/'
+    #     dockerfile: Dockerfile
+    #   container_name: vscode_image
+    #   image: 921646896924.dkr.ecr.ap-southeast-2.amazonaws.com/vscode_image
+
+       
