@@ -13,13 +13,17 @@ RUN echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER coder
 WORKDIR /home/coder
 
+# Install code-server
 RUN curl -L -o code-server.deb \
     https://github.com/coder/code-server/releases/download/v4.106.2/code-server_4.106.2_amd64.deb && \
     sudo dpkg -i code-server.deb || sudo apt-get install -f -y && \
     rm code-server.deb
 
+# Install Jupyter Server (Notebook 7 uses ServerApp)
 RUN python3 -m pip install --upgrade pip && \
-    pip install jupyter
+    pip install --user jupyter jupyterlab notebook
+
+ENV PATH="/home/coder/.local/bin:${PATH}"
 
 USER root
 COPY nginx.conf /etc/nginx/sites-enabled/default
@@ -28,5 +32,13 @@ EXPOSE 80
 
 CMD service nginx start && \
     su coder -c "code-server --bind-addr 0.0.0.0:8080 --auth none" & \
-    su coder -c "jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --NotebookApp.base_url=/jupyter_backend/ --NotebookApp.allow_origin='*'" & \
+    su coder -c "/home/coder/.local/bin/jupyter lab \
+        --ServerApp.ip=0.0.0.0 \
+        --ServerApp.port=8888 \
+        --ServerApp.token='' \
+        --ServerApp.password='' \
+        --ServerApp.base_url=/jupyter_backend/ \
+        --ServerApp.allow_origin='*' \
+        --ServerApp.disable_check_xsrf=True \
+        --no-browser" & \
     tail -f /dev/null
