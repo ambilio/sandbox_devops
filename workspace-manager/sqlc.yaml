@@ -1,0 +1,22 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: 
+      - "db/instances/users.sql"
+      - "db/instances/instances.sql"
+    schema: "db/schema.sql"
+    gen:
+      go:
+        package: "db"
+        out: "db/sqlc"
+        emit_json_tags: true
+        emit_empty_slices: true
+        emit_interface: false
+        emit_exact_table_names: true
+        overrides:
+          - column: "users.id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "instances.id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "instances.user_id"
+            go_type: "github.com/google/uuid.UUID"
