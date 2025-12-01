@@ -1,61 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cloud IDE Panel</title>
+    <title>Backend Test UI</title>
     <style>
-        body {
-            margin: 0;
-            font-family: Arial;
-            background: #f7f7f7;
-        }
-
-        .topbar {
-            padding: 15px;
-            background: #1e1e1e;
-            display: flex;
-            gap: 15px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #3a3a3a;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #5a5a5a;
-        }
-
-        iframe {
-            width: 100%;
-            height: calc(100vh - 60px);
-            border: none;
-        }
+        body { font-family: Arial; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
+        button { padding: 8px 12px; }
+        pre { background: #eee; padding: 10px; }
     </style>
 </head>
-
 <body>
 
-    <div class="topbar">
-        <button onclick="openVSCode()">VS Code</button>
-        <button onclick="openJupyter()">Jupyter Notebook</button>
-    </div>
+<h1>Backend Testing Dashboard</h1>
 
-    <iframe id="workspaceFrame" src=""></iframe>
+<div class="box">
+    <h3>Signup</h3>
+    <input id="signupEmail" placeholder="Email"/> <br><br>
+    <input id="signupPass" placeholder="Password"/> <br><br>
+    <button onclick="signup()">Signup</button>
+    <pre id="signupResult"></pre>
+</div>
 
-    <script>
-        function openVSCode() {
-            document.getElementById("workspaceFrame").src = "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/";
-        }
+<div class="box">
+    <h3>Login</h3>
+    <input id="loginEmail" placeholder="Email"/> <br><br>
+    <input id="loginPass" placeholder="Password"/> <br><br>
+    <button onclick="login()">Login</button>
+    <pre id="loginResult"></pre>
+</div>
 
-        function openJupyter() {
-            document.getElementById("workspaceFrame").src = "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/";
-        }
-    </script>
+<div class="box">
+    <h3>Profile</h3>
+    <button onclick="getProfile()">Load Profile</button>
+    <pre id="profileResult"></pre>
+</div>
+
+<div class="box">
+    <h3>Bookings</h3>
+    <button onclick="getBookings()">Load Bookings</button>
+    <pre id="bookingsResult"></pre>
+</div>
+
+<div class="box">
+    <h3>Recommendations</h3>
+    <button onclick="getRecs()">Load Recommendations</button>
+    <pre id="recsResult"></pre>
+</div>
+
+<script src="script.js"></script>
 
 </body>
 </html>
