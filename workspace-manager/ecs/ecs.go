@@ -3,6 +3,7 @@ package ecsmanager
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -30,9 +31,18 @@ func NewECSManager() (*ECSManager, error) {
 	return &ECSManager{
 		ecsClient: ecs.NewFromConfig(cfg),
 		ec2Client: ec2.NewFromConfig(cfg),
+		Cluster:        "ambilio-cluster",
+		TaskDefinition: "vscode_backend",
+		SubnetIDs: []string{
+			"subnet-0aa8ba758b03f9112",
+		},
+		SecurityGroups: []string{
+			"sg-0f445e5bb8011cae6", // replace with your security group allowing HTTP/HTTPS
+		},
 	}, nil
 }
 
+// Example: RunWorkspaceTask will assign a public IP in these subnets
 func (m *ECSManager) RunWorkspaceTask(
 	ctx context.Context,
 	userID string,
@@ -44,21 +54,18 @@ func (m *ECSManager) RunWorkspaceTask(
 	resp, err := m.ecsClient.RunTask(ctx, &ecs.RunTaskInput{
 		Cluster:        aws.String(m.Cluster),
 		TaskDefinition: aws.String(m.TaskDefinition),
-
-		LaunchType: types.LaunchTypeFargate,
-
+		LaunchType:     types.LaunchTypeFargate,
 		NetworkConfiguration: &types.NetworkConfiguration{
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
 				Subnets:        m.SubnetIDs,
 				SecurityGroups: m.SecurityGroups,
-				AssignPublicIp: types.AssignPublicIpDisabled,
+				AssignPublicIp: types.AssignPublicIpEnabled, // public IP assigned
 			},
 		},
-
 		Overrides: &types.TaskOverride{
 			ContainerOverrides: []types.ContainerOverride{
 				{
-					Name: aws.String("workspace"),
+					Name: aws.String("vscode_backend"),
 					Environment: []types.KeyValuePair{
 						{Name: aws.String("USER_ID"), Value: aws.String(userID)},
 						{Name: aws.String("INSTANCE_ID"), Value: aws.String(instanceID)},
@@ -69,7 +76,6 @@ func (m *ECSManager) RunWorkspaceTask(
 			},
 		},
 	})
-
 	if err != nil {
 		return "", "", err
 	}
@@ -79,17 +85,30 @@ func (m *ECSManager) RunWorkspaceTask(
 	}
 
 	taskArn = aws.ToString(resp.Tasks[0].TaskArn)
-
-	if len(resp.Tasks[0].Attachments) == 0 {
-		return taskArn, "", errors.New("no network attachment found")
-	}
-
+	// Get ENI and private IP
 	var eniID string
-	for _, d := range resp.Tasks[0].Attachments[0].Details {
-		if d.Name != nil && *d.Name == "networkInterfaceId" {
-			eniID = aws.ToString(d.Value)
-		}
-	}
+for i := 0; i < 5; i++ { // try up to 5 times
+    taskResp, err := m.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+        Cluster: aws.String(m.Cluster),
+        Tasks:   []string{taskArn},
+    })
+    if err != nil {
+        return taskArn, "", err
+    }
+
+    if len(taskResp.Tasks) > 0 && len(taskResp.Tasks[0].Attachments) > 0 {
+        for _, d := range taskResp.Tasks[0].Attachments[0].Details {
+            if d.Name != nil && *d.Name == "networkInterfaceId" {
+                eniID = aws.ToString(d.Value)
+            }
+        }
+    }
+
+    if eniID != "" {
+        break
+    }
+    time.Sleep(2 * time.Second) // wait before retry
+}
 
 	if eniID == "" {
 		return taskArn, "", errors.New("ENI not found in task attachments")
@@ -103,15 +122,14 @@ func (m *ECSManager) RunWorkspaceTask(
 	}
 
 	privateIP = aws.ToString(ec2Resp.NetworkInterfaces[0].PrivateIpAddress)
-
 	return taskArn, privateIP, nil
 }
 
 func (m *ECSManager) StopTask(ctx context.Context, taskArn string) error {
 	_, err := m.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
-		Task:    aws.String(taskArn),
 		Cluster: aws.String(m.Cluster),
-		Reason:  aws.String("Idle timeout"),
+		Task:    aws.String(taskArn),
+		Reason:  aws.String("Stopped by user"),
 	})
 	return err
 }
