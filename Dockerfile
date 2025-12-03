@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     python3 python3-pip \
     nodejs npm \
     nginx \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m coder
@@ -19,7 +20,7 @@ RUN curl -L -o code-server.deb \
     sudo dpkg -i code-server.deb || sudo apt-get install -f -y && \
     rm code-server.deb
 
-# Install Jupyter Server (Notebook 7 uses ServerApp)
+# Install Jupyter Server
 RUN python3 -m pip install --upgrade pip && \
     pip install --user jupyter jupyterlab notebook
 
@@ -29,16 +30,11 @@ USER root
 COPY nginx.conf /etc/nginx/sites-enabled/default
 
 EXPOSE 80
+EXPOSE 8080
+EXPOSE 8888
 
-CMD service nginx start && \
-    su coder -c "code-server --bind-addr 0.0.0.0:8080 --auth none" & \
-    su coder -c "/home/coder/.local/bin/jupyter lab \
-        --ServerApp.ip=0.0.0.0 \
-        --ServerApp.port=8888 \
-        --ServerApp.token='' \
-        --ServerApp.password='' \
-        --ServerApp.base_url=/jupyter_backend/ \
-        --ServerApp.allow_origin='*' \
-        --ServerApp.disable_check_xsrf=True \
-        --no-browser" & \
-    tail -f /dev/null
+# ---- FIX: use a bash startup script ----
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+CMD ["/bin/bash", "/start.sh"]

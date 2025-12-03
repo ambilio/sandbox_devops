@@ -227,7 +227,7 @@ export default function Dashboard({ onLogout }) {
               {inst.container_ip?.String && (
                 <div style={{ marginBottom: "15px" }}>
                   <a
-                    href={`http://${inst.container_ip.String}:8080`}
+                    href={`http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_frontend/`}
                     target="_blank"
                     rel="noreferrer"
                     style={{
