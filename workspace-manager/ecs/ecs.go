@@ -16,8 +16,10 @@ type ECSManager struct {
 	ecsClient *ecs.Client
 	ec2Client *ec2.Client
 
-	Cluster        string
-	TaskDefinition string
+	Cluster         string
+	VscodeTaskDef   string
+	JupyterTaskDef  string
+
 	SubnetIDs      []string
 	SecurityGroups []string
 }
@@ -29,48 +31,59 @@ func NewECSManager() (*ECSManager, error) {
 	}
 
 	return &ECSManager{
-		ecsClient: ecs.NewFromConfig(cfg),
-		ec2Client: ec2.NewFromConfig(cfg),
+		ecsClient:      ecs.NewFromConfig(cfg),
+		ec2Client:      ec2.NewFromConfig(cfg),
 		Cluster:        "ambilio-cluster",
-		TaskDefinition: "vscode_backend",
+		VscodeTaskDef:  "vscode_embedded",
+		JupyterTaskDef: "jupyter_embedded",
 		SubnetIDs: []string{
-			"subnet-0aa8ba758b03f9112",
+			"subnet-08a2ed4baa1a627f8",
 		},
 		SecurityGroups: []string{
-			"sg-0f445e5bb8011cae6", // replace with your security group allowing HTTP/HTTPS
+			"sg-0fcec6ae1b628b075 ",
 		},
 	}, nil
 }
 
-// Example: RunWorkspaceTask will assign a public IP in these subnets
 func (m *ECSManager) RunWorkspaceTask(
 	ctx context.Context,
 	userID string,
 	instanceID string,
 	efsPath string,
-	typ string,
+	workspaceType string,
 ) (taskArn string, privateIP string, err error) {
 
-	resp, err := m.ecsClient.RunTask(ctx, &ecs.RunTaskInput{
+	var taskDef string
+
+	switch workspaceType {
+	case "vscode":
+		taskDef = m.VscodeTaskDef
+	case "jupyter":
+		taskDef = m.JupyterTaskDef
+	default:
+		return "", "", errors.New("invalid workspace type")
+	}
+
+	runResp, err := m.ecsClient.RunTask(ctx, &ecs.RunTaskInput{
 		Cluster:        aws.String(m.Cluster),
-		TaskDefinition: aws.String(m.TaskDefinition),
+		TaskDefinition: aws.String(taskDef),
 		LaunchType:     types.LaunchTypeFargate,
 		NetworkConfiguration: &types.NetworkConfiguration{
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
 				Subnets:        m.SubnetIDs,
 				SecurityGroups: m.SecurityGroups,
-				AssignPublicIp: types.AssignPublicIpEnabled, // public IP assigned
+				AssignPublicIp: types.AssignPublicIpEnabled,
 			},
 		},
 		Overrides: &types.TaskOverride{
 			ContainerOverrides: []types.ContainerOverride{
 				{
-					Name: aws.String("vscode_backend"),
+					Name: aws.String(workspaceType + "_backend"),
 					Environment: []types.KeyValuePair{
 						{Name: aws.String("USER_ID"), Value: aws.String(userID)},
 						{Name: aws.String("INSTANCE_ID"), Value: aws.String(instanceID)},
 						{Name: aws.String("EFS_PATH"), Value: aws.String(efsPath)},
-						{Name: aws.String("WORKSPACE_TYPE"), Value: aws.String(typ)},
+						{Name: aws.String("WORKSPACE_TYPE"), Value: aws.String(workspaceType)},
 					},
 				},
 			},
@@ -80,48 +93,51 @@ func (m *ECSManager) RunWorkspaceTask(
 		return "", "", err
 	}
 
-	if len(resp.Tasks) == 0 {
-		return "", "", errors.New("no tasks launched")
+	if len(runResp.Tasks) == 0 {
+		return "", "", errors.New("no ECS task started")
 	}
 
-	taskArn = aws.ToString(resp.Tasks[0].TaskArn)
-	// Get ENI and private IP
+	taskArn = aws.ToString(runResp.Tasks[0].TaskArn)
+
+	// wait for ENI
 	var eniID string
-for i := 0; i < 5; i++ { // try up to 5 times
-    taskResp, err := m.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-        Cluster: aws.String(m.Cluster),
-        Tasks:   []string{taskArn},
-    })
-    if err != nil {
-        return taskArn, "", err
-    }
+	for i := 0; i < 10; i++ {
+		desc, err := m.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+			Cluster: aws.String(m.Cluster),
+			Tasks:   []string{taskArn},
+		})
+		if err != nil {
+			return taskArn, "", err
+		}
 
-    if len(taskResp.Tasks) > 0 && len(taskResp.Tasks[0].Attachments) > 0 {
-        for _, d := range taskResp.Tasks[0].Attachments[0].Details {
-            if d.Name != nil && *d.Name == "networkInterfaceId" {
-                eniID = aws.ToString(d.Value)
-            }
-        }
-    }
+		for _, att := range desc.Tasks[0].Attachments {
+			for _, d := range att.Details {
+				if aws.ToString(d.Name) == "networkInterfaceId" {
+					eniID = aws.ToString(d.Value)
+					break
+				}
+			}
+		}
 
-    if eniID != "" {
-        break
-    }
-    time.Sleep(2 * time.Second) // wait before retry
-}
+		if eniID != "" {
+			break
+		}
+
+		time.Sleep(2 * time.Second)
+	}
 
 	if eniID == "" {
-		return taskArn, "", errors.New("ENI not found in task attachments")
+		return taskArn, "", errors.New("failed to get ENI")
 	}
 
-	ec2Resp, err := m.ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
+	eniDesc, err := m.ec2Client.DescribeNetworkInterfaces(ctx, &ec2.DescribeNetworkInterfacesInput{
 		NetworkInterfaceIds: []string{eniID},
 	})
 	if err != nil {
 		return taskArn, "", err
 	}
 
-	privateIP = aws.ToString(ec2Resp.NetworkInterfaces[0].PrivateIpAddress)
+	privateIP = aws.ToString(eniDesc.NetworkInterfaces[0].PrivateIpAddress)
 	return taskArn, privateIP, nil
 }
 

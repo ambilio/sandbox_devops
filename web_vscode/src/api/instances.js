@@ -14,13 +14,10 @@ async function getAuthHeaders() {
 export async function listInstances() {
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${BASE}/instances`, {
-      method: "GET",
-      headers,
-    });
-    
+    const res = await fetch(`${BASE}/instances`, { method: "GET", headers });
+
     const data = await res.json();
-    
+
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("token");
@@ -28,7 +25,7 @@ export async function listInstances() {
       }
       throw new Error(data.error || "Failed to fetch instances");
     }
-    
+
     return { success: true, instances: data || [] };
   } catch (error) {
     return { success: false, error: error.message, instances: [] };
@@ -43,65 +40,72 @@ export async function createInstance(type, ttl_hours) {
       headers,
       body: JSON.stringify({ type, ttl_hours }),
     });
-    
+
     const data = await res.json();
-    
+
     if (!res.ok) {
-      if (res.status === 401) {
-        localStorage.removeItem("token");
-        throw new Error("Unauthorized. Please login again.");
-      }
       throw new Error(data.error || "Failed to create instance");
     }
-    
+
     return { success: true, instance: data };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
 
-export async function startInstance(id) {
+
+/* ✅ FIXED: START INSTANCE BY TYPE */
+export async function startInstance(id, type) {
+  if (!type) {
+    return { success: false, error: "Workspace type required" };
+  }
+
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${BASE}/instances/${id}/start`, {
-      method: "POST",
-      headers,
-    });
-    
+    const res = await fetch(
+      `${BASE}/instances/${id}/start?type=${type}`,
+      { method: "POST", headers }
+    );
+
     const data = await res.json();
-    
+
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("token");
         throw new Error("Unauthorized. Please login again.");
       }
-      throw new Error(data.error || "Failed to start instance");
+      throw new Error(data.error || "Failed to start workspace");
     }
-    
+
     return { success: true, instance: data };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
 
-export async function stopInstance(id) {
+/* ✅ FIXED: STOP INSTANCE BY TYPE */
+export async function stopInstance(id, type) {
+  if (!type) {
+    return { success: false, error: "Workspace type required" };
+  }
+
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${BASE}/instances/${id}/stop`, {
-      method: "POST",
-      headers,
-    });
-    
+    const res = await fetch(
+      `${BASE}/instances/${id}/stop?type=${type}`,
+      { method: "POST", headers }
+    );
+
     const data = await res.json();
-    
+
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("token");
         throw new Error("Unauthorized. Please login again.");
       }
-      throw new Error(data.error || "Failed to stop instance");
+      throw new Error(data.error || "Failed to stop workspace");
     }
-    
+
     return { success: true, instance: data };
   } catch (error) {
     return { success: false, error: error.message };
