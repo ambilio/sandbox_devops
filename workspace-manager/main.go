@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"time"
@@ -8,10 +9,11 @@ import (
 	"example.com/m/v2/api"
 	db "example.com/m/v2/db/sqlc"
 	"example.com/m/v2/ecs"
+	"example.com/m/v2/internal/worker"
 	"example.com/m/v2/util"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 )
 
@@ -39,7 +41,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot initialize ECS Manager: %v", err)
 	}
+	// ✅ Start automatic ECS task shutdown worker
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	autoStop := worker.NewAutoStopWorker(mainQueries, ecsMgr)
+	autoStop.Start(ctx)
+
+	
 	// Setup Gin router
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())

@@ -59,3 +59,15 @@ WHERE
         created_at + (ttl_hours || ' hours')::interval < NOW()
         OR last_active < NOW() - INTERVAL '30 minutes'
     );
+
+
+
+-- name: StopExpiredInstance :exec
+UPDATE instances
+SET
+  status = 'stopped',
+  task_arn = NULL,
+  container_ip = NULL,
+  last_active = NOW()
+WHERE id = $1;
+

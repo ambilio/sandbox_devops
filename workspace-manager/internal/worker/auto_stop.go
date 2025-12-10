@@ -41,13 +41,18 @@ func (w *AutoStopWorker) runOnce(ctx context.Context) {
 	}
 
 	for _, inst := range instances {
-		log.Printf("Auto-stopping instance %s\n", inst.ID)
+		if !inst.TaskArn.Valid {
+			continue
+		}
 
-		_ = w.ecs.StopTask(ctx, inst.TaskArn.String)
+		log.Printf("🛑 Auto-stopping instance %s\n", inst.ID)
 
-		_, _ = w.q.UpdateInstanceStatus(ctx, db.UpdateInstanceStatusParams{
-			ID:     inst.ID,
-			Status: "stopped",
-		})
+		err := w.ecs.StopTask(ctx, inst.TaskArn.String)
+		if err != nil {
+			log.Printf("ECS stop failed for %s: %v\n", inst.ID, err)
+			continue
+		}
+
+		_ = w.q.StopExpiredInstance(ctx, inst.ID)
 	}
 }

@@ -166,6 +166,21 @@ func (q *Queries) ListUserInstances(ctx context.Context, userID uuid.UUID) ([]In
 	return items, nil
 }
 
+const stopExpiredInstance = `-- name: StopExpiredInstance :exec
+UPDATE instances
+SET
+  status = 'stopped',
+  task_arn = NULL,
+  container_ip = NULL,
+  last_active = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) StopExpiredInstance(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, stopExpiredInstance, id)
+	return err
+}
+
 const updateInstanceOnStart = `-- name: UpdateInstanceOnStart :one
 UPDATE instances
 SET
