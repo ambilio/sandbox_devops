@@ -23,7 +23,7 @@ export default function Login({ onLogin }) {
       if (isSignup) {
         const res = await signup(email, password);
         if (res.success) {
-          setSuccess("Signup successful! Please login.");
+          setSuccess("Account created! Please login.");
           setIsSignup(false);
           setPassword("");
         } else {
@@ -31,155 +31,192 @@ export default function Login({ onLogin }) {
         }
       } else {
         const res = await login(email, password);
-        if (res.success && res.token) {
-          onLogin();
-        } else {
-          setError(res.error || "Login failed");
-        }
+        if (res.success && res.token) onLogin();
+        else setError(res.error || "Login failed");
       }
-    } catch (err) {
-      setError(err.message || "An error occurred");
+    } catch (e) {
+      setError("Something went wrong");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleKeyPress(e) {
-    if (e.key === "Enter") {
-      handleSubmit();
-    }
-  }
-
   return (
-    <div style={{ 
-      maxWidth: "400px", 
-      margin: "50px auto", 
-      padding: "30px", 
-      border: "1px solid #ddd", 
-      borderRadius: "8px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
-    }}>
-      <h2 style={{ marginBottom: "20px", textAlign: "center" }}>
-        {isSignup ? "Sign Up" : "Login"}
-      </h2>
-      
-      {error && (
-        <div style={{ 
-          padding: "10px", 
-          marginBottom: "15px", 
-          backgroundColor: "#fee", 
-          color: "#c33", 
-          borderRadius: "4px",
-          fontSize: "14px"
-        }}>
-          {error}
+    <div style={page}>
+      <div style={card}>
+        <h1 style={title}>Agentic Workspace</h1>
+        <p style={subtitle}>
+          {isSignup ? "Create your account" : "Sign in to continue"}
+        </p>
+
+        {/* Messages */}
+        {error && <div style={errorBox}>{error}</div>}
+        {success && <div style={successBox}>{success}</div>}
+
+        {/* Email */}
+        <div style={field}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder=" "
+            disabled={loading}
+            style={input}
+          />
+          <label style={label}>Email</label>
         </div>
-      )}
-      
-      {success && (
-        <div style={{ 
-          padding: "10px", 
-          marginBottom: "15px", 
-          backgroundColor: "#efe", 
-          color: "#3c3", 
-          borderRadius: "4px",
-          fontSize: "14px"
-        }}>
-          {success}
+
+        {/* Password */}
+        <div style={field}>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder=" "
+            disabled={loading}
+            style={input}
+          />
+          <label style={label}>Password</label>
         </div>
-      )}
 
-      <div style={{ marginBottom: "15px" }}>
-        <input
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Email"
-          type="email"
-          style={{
-            width: "100%",
-            padding: "10px",
-            fontSize: "16px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            boxSizing: "border-box"
-          }}
+        {/* Action */}
+        <button
+          onClick={handleSubmit}
           disabled={loading}
-        />
-      </div>
-
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyPress={handleKeyPress}
-          type="password"
-          placeholder="Password"
           style={{
-            width: "100%",
-            padding: "10px",
-            fontSize: "16px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            boxSizing: "border-box"
+            ...button,
+            background: loading
+              ? "#999"
+              : "linear-gradient(135deg,#6c63ff,#5a54e8)",
           }}
-          disabled={loading}
-        />
-      </div>
+        >
+          {loading ? "Processing…" : isSignup ? "Create Account" : "Login"}
+        </button>
 
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        style={{
-          width: "100%",
-          padding: "12px",
-          fontSize: "16px",
-          backgroundColor: loading ? "#ccc" : "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: loading ? "not-allowed" : "pointer",
-          marginBottom: "15px"
-        }}
-      >
-        {loading ? "Processing..." : (isSignup ? "Sign Up" : "Login")}
-      </button>
-
-      <div style={{ textAlign: "center", fontSize: "14px" }}>
-        {isSignup ? (
-          <span>
-            Already have an account?{" "}
-            <a
-              href="#"
-              onClick={e => {
-                e.preventDefault();
-                setIsSignup(false);
-                setError("");
-                setSuccess("");
-              }}
-              style={{ color: "#007bff", textDecoration: "none" }}
-            >
-              Login
-            </a>
-          </span>
-        ) : (
-          <span>
-            Don't have an account?{" "}
-            <a
-              href="#"
-              onClick={e => {
-                e.preventDefault();
-                setIsSignup(true);
-                setError("");
-                setSuccess("");
-              }}
-              style={{ color: "#007bff", textDecoration: "none" }}
-            >
-              Sign Up
-            </a>
-          </span>
-        )}
+        {/* Switch */}
+        <div style={switchText}>
+          {isSignup ? (
+            <>
+              Already have an account?{" "}
+              <span onClick={() => switchMode(false)} style={link}>
+                Login
+              </span>
+            </>
+          ) : (
+            <>
+              Don’t have an account?{" "}
+              <span onClick={() => switchMode(true)} style={link}>
+                Sign up
+              </span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
+
+  function switchMode(v) {
+    setIsSignup(v);
+    setError("");
+    setSuccess("");
+  }
 }
+
+/* ======================= STYLES ======================= */
+
+const page = {
+  minHeight: "100vh",
+  background:
+    "radial-gradient(circle at top, #6c63ff33, transparent 40%), linear-gradient(135deg,#0f1225,#1c2040)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const card = {
+  width: 380,
+  padding: "36px 32px",
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.08)",
+  backdropFilter: "blur(12px)",
+  boxShadow: "0 30px 60px rgba(0,0,0,0.4)",
+  color: "#fff",
+};
+
+const title = {
+  margin: 0,
+  textAlign: "center",
+  fontSize: 26,
+};
+
+const subtitle = {
+  textAlign: "center",
+  fontSize: 14,
+  opacity: 0.85,
+  marginBottom: 30,
+};
+
+const field = {
+  position: "relative",
+  marginBottom: 20,
+};
+
+const input = {
+  width: "100%",
+  padding: "14px 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(255,255,255,0.2)",
+  background: "rgba(0,0,0,0.25)",
+  color: "#fff",
+  fontSize: 15,
+  outline: "none",
+};
+
+const label = {
+  position: "absolute",
+  top: 12,
+  left: 12,
+  fontSize: 13,
+  opacity: 0.6,
+  pointerEvents: "none",
+};
+
+const button = {
+  width: "100%",
+  padding: "14px",
+  borderRadius: 12,
+  border: "none",
+  color: "#fff",
+  fontWeight: 600,
+  cursor: "pointer",
+  marginTop: 10,
+};
+
+const switchText = {
+  marginTop: 20,
+  textAlign: "center",
+  fontSize: 13,
+  opacity: 0.8,
+};
+
+const link = {
+  color: "#6c63ff",
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const errorBox = {
+  background: "rgba(255,0,0,0.15)",
+  padding: 10,
+  borderRadius: 8,
+  fontSize: 13,
+  marginBottom: 12,
+};
+
+const successBox = {
+  background: "rgba(0,255,0,0.15)",
+  padding: 10,
+  borderRadius: 8,
+  fontSize: 13,
+  marginBottom: 12,
+};

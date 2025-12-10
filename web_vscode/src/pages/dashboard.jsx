@@ -98,21 +98,23 @@ export default function Dashboard({ onLogout }) {
           <p>Create isolated AI-ready development environments.</p>
 
           <div className="actions">
-            <button
-              disabled={creating}
-              onClick={() => handleCreate("vscode")}
-              className="primary"
-            >
-              + VS Code
-            </button>
-            <button
-              disabled={creating}
-              onClick={() => handleCreate("jupyter")}
-              className="secondary"
-            >
-              + Jupyter
-            </button>
-          </div>
+  <div
+    className="create-btn vscode"
+    onClick={() => handleCreate("vscode")}
+  >
+    <div className="icon vscode-icon">{"</>"}</div>
+    <span>Create VS Code</span>
+  </div>
+
+  <div
+    className="create-btn jupyter"
+    onClick={() => handleCreate("jupyter")}
+  >
+    <div className="icon jupyter-icon">📓</div>
+    <span>Create Jupyter</span>
+  </div>
+</div>
+
         </header>
 
         {/* CONTENT */}
@@ -353,4 +355,92 @@ main {
   text-align:center;
   color:#666;
 }
+/* ================= BUTTON CONTAINERS ================= */
+
+.actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.create-btn {
+  position: relative;
+  overflow: hidden;
+  min-width: 200px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #fff;
+  transform: translateY(0);
+  transition: all 0.3s ease;
+}
+
+/* VS CODE */
+.create-btn.vscode {
+  background: linear-gradient(135deg, #007acc, #005a9e);
+}
+
+/* JUPYTER */
+.create-btn.jupyter {
+  background: linear-gradient(135deg, #f37726, #d45b13);
+}
+
+/* hover lift */
+.create-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+}
+
+/* ================= ICON POP ================= */
+
+.create-btn .icon {
+  position: absolute;
+  font-size: 26px;
+  opacity: 0.15;
+  transform: scale(1);
+  transition: all 0.4s ease;
+}
+
+/* floating animation */
+.create-btn:hover .icon {
+  opacity: 0.35;
+  transform: translateY(-14px) scale(1.5);
+}
+
+/* Click pop */
+.create-btn:active .icon {
+  transform: translateY(-20px) scale(1.8);
+}
+
+/* text layering */
+.create-btn span {
+  z-index: 2;
+  font-size: 15px;
+}
+
+/* ================= LIGHT RIPPLE ================= */
+.create-btn::after {
+  content: "";
+  position: absolute;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(
+    circle,
+    rgba(255,255,255,.35),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.create-btn:hover::after {
+  opacity: 1;
+}
+
 `;
+
