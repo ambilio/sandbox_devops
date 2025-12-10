@@ -1,28 +1,20 @@
 FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1 \
-    PORT=7860 \
-    LANGFLOW_HOME=/data \
-    LANGFLOW_DATABASE_URL=sqlite:////data/langflow.db
-
-# Install system deps
+# system deps
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LangFlow
+# install langflow
 RUN pip install --no-cache-dir langflow
 
-# Create persistent directory
-RUN mkdir -p /data
-VOLUME ["/data"]
+# nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Expose LangFlow port
-EXPOSE 7860
-
-# Start script
+# startup script
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
+
+EXPOSE 80
 
 CMD ["/start.sh"]
