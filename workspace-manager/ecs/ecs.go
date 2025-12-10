@@ -16,9 +16,9 @@ type ECSManager struct {
 	ecsClient *ecs.Client
 	ec2Client *ec2.Client
 
-	Cluster         string
-	VscodeTaskDef   string
-	JupyterTaskDef  string
+	Cluster        string
+	VscodeTaskDef  string
+	JupyterTaskDef string
 
 	SubnetIDs      []string
 	SecurityGroups []string
@@ -40,7 +40,7 @@ func NewECSManager() (*ECSManager, error) {
 			"subnet-08a2ed4baa1a627f8",
 		},
 		SecurityGroups: []string{
-			"sg-0fcec6ae1b628b075 ",
+			"sg-0fcec6ae1b628b075",
 		},
 	}, nil
 }
@@ -54,12 +54,17 @@ func (m *ECSManager) RunWorkspaceTask(
 ) (taskArn string, privateIP string, err error) {
 
 	var taskDef string
+	var containerName string
 
 	switch workspaceType {
 	case "vscode":
 		taskDef = m.VscodeTaskDef
+		containerName = "vscode_embed"
+
 	case "jupyter":
 		taskDef = m.JupyterTaskDef
+		containerName = "jupyter_embed"
+
 	default:
 		return "", "", errors.New("invalid workspace type")
 	}
@@ -78,7 +83,7 @@ func (m *ECSManager) RunWorkspaceTask(
 		Overrides: &types.TaskOverride{
 			ContainerOverrides: []types.ContainerOverride{
 				{
-					Name: aws.String(workspaceType + "_backend"),
+					Name: aws.String(containerName),
 					Environment: []types.KeyValuePair{
 						{Name: aws.String("USER_ID"), Value: aws.String(userID)},
 						{Name: aws.String("INSTANCE_ID"), Value: aws.String(instanceID)},
@@ -99,7 +104,7 @@ func (m *ECSManager) RunWorkspaceTask(
 
 	taskArn = aws.ToString(runResp.Tasks[0].TaskArn)
 
-	// wait for ENI
+	// Wait for ENI
 	var eniID string
 	for i := 0; i < 10; i++ {
 		desc, err := m.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{

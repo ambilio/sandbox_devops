@@ -13,43 +13,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const clearJupyterData = `-- name: ClearJupyterData :exec
-UPDATE instances
-SET
-    jupyter_task_arn = NULL,
-    jupyter_ip = NULL,
-    status = 'stopped',
-    last_active = NOW()
-WHERE id = $1
-`
-
-func (q *Queries) ClearJupyterData(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, clearJupyterData, id)
-	return err
-}
-
-const clearVSCodeData = `-- name: ClearVSCodeData :exec
-UPDATE instances
-SET
-    vscode_task_arn = NULL,
-    vscode_ip = NULL,
-    status = 'stopped',
-    last_active = NOW()
-WHERE id = $1
-`
-
-func (q *Queries) ClearVSCodeData(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, clearVSCodeData, id)
-	return err
-}
-
 const createInstance = `-- name: CreateInstance :one
 INSERT INTO instances (
     id, user_id, type, efs_path, ttl_hours
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
+RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 `
 
 type CreateInstanceParams struct {
@@ -75,21 +45,17 @@ func (q *Queries) CreateInstance(ctx context.Context, arg CreateInstanceParams) 
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
+		&i.TaskArn,
+		&i.ContainerIp,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
 	)
 	return i, err
 }
 
 const getInstanceByID = `-- name: GetInstanceByID :one
-SELECT id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
+SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 FROM instances
 WHERE id = $1
 LIMIT 1
@@ -104,21 +70,63 @@ func (q *Queries) GetInstanceByID(ctx context.Context, id uuid.UUID) (Instances,
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
+		&i.TaskArn,
+		&i.ContainerIp,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
 	)
 	return i, err
 }
 
+const listExpiredInstances = `-- name: ListExpiredInstances :many
+SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+FROM instances
+WHERE
+    status = 'running'
+    AND task_arn IS NOT NULL
+    AND (
+        created_at + (ttl_hours || ' hours')::interval < NOW()
+        OR last_active < NOW() - INTERVAL '30 minutes'
+    )
+`
+
+func (q *Queries) ListExpiredInstances(ctx context.Context) ([]Instances, error) {
+	rows, err := q.db.QueryContext(ctx, listExpiredInstances)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Instances{}
+	for rows.Next() {
+		var i Instances
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Type,
+			&i.Status,
+			&i.EfsPath,
+			&i.TaskArn,
+			&i.ContainerIp,
+			&i.TtlHours,
+			&i.LastActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserInstances = `-- name: ListUserInstances :many
-SELECT id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
+SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 FROM instances
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -139,15 +147,11 @@ func (q *Queries) ListUserInstances(ctx context.Context, userID uuid.UUID) ([]In
 			&i.Type,
 			&i.Status,
 			&i.EfsPath,
-			&i.VscodeTaskArn,
-			&i.VscodeIp,
-			&i.JupyterTaskArn,
-			&i.JupyterIp,
+			&i.TaskArn,
+			&i.ContainerIp,
 			&i.TtlHours,
 			&i.LastActive,
 			&i.CreatedAt,
-			&i.TaskArn,
-			&i.ContainerIp,
 		); err != nil {
 			return nil, err
 		}
@@ -164,27 +168,13 @@ func (q *Queries) ListUserInstances(ctx context.Context, userID uuid.UUID) ([]In
 
 const updateInstanceOnStart = `-- name: UpdateInstanceOnStart :one
 UPDATE instances
-SET 
+SET
     task_arn = $2,
     container_ip = $3,
     status = 'running',
     last_active = NOW()
 WHERE id = $1
-RETURNING 
-    id,
-    user_id,
-    type,
-    efs_path,
-    task_arn,
-    container_ip,
-    status,
-    ttl_hours,
-    last_active,
-    created_at,
-    vscode_task_arn,
-    vscode_ip,
-    jupyter_task_arn,
-    jupyter_ip
+RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 `
 
 type UpdateInstanceOnStartParams struct {
@@ -193,50 +183,33 @@ type UpdateInstanceOnStartParams struct {
 	ContainerIp sql.NullString `json:"container_ip"`
 }
 
-type UpdateInstanceOnStartRow struct {
-	ID             uuid.UUID      `json:"id"`
-	UserID         uuid.UUID      `json:"user_id"`
-	Type           string         `json:"type"`
-	EfsPath        string         `json:"efs_path"`
-	TaskArn        sql.NullString `json:"task_arn"`
-	ContainerIp    sql.NullString `json:"container_ip"`
-	Status         string         `json:"status"`
-	TtlHours       int32          `json:"ttl_hours"`
-	LastActive     time.Time      `json:"last_active"`
-	CreatedAt      time.Time      `json:"created_at"`
-	VscodeTaskArn  sql.NullString `json:"vscode_task_arn"`
-	VscodeIp       sql.NullString `json:"vscode_ip"`
-	JupyterTaskArn sql.NullString `json:"jupyter_task_arn"`
-	JupyterIp      sql.NullString `json:"jupyter_ip"`
-}
-
-func (q *Queries) UpdateInstanceOnStart(ctx context.Context, arg UpdateInstanceOnStartParams) (UpdateInstanceOnStartRow, error) {
+func (q *Queries) UpdateInstanceOnStart(ctx context.Context, arg UpdateInstanceOnStartParams) (Instances, error) {
 	row := q.db.QueryRowContext(ctx, updateInstanceOnStart, arg.ID, arg.TaskArn, arg.ContainerIp)
-	var i UpdateInstanceOnStartRow
+	var i Instances
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Type,
+		&i.Status,
 		&i.EfsPath,
 		&i.TaskArn,
 		&i.ContainerIp,
-		&i.Status,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
 	)
 	return i, err
 }
 
 const updateInstanceStatus = `-- name: UpdateInstanceStatus :one
 UPDATE instances
-SET status = $2
+SET
+    status = $2,
+    task_arn = NULL,
+    container_ip = NULL,
+    last_active = NOW()
 WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
+RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 `
 
 type UpdateInstanceStatusParams struct {
@@ -253,53 +226,11 @@ func (q *Queries) UpdateInstanceStatus(ctx context.Context, arg UpdateInstanceSt
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
+		&i.TaskArn,
+		&i.ContainerIp,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
-	)
-	return i, err
-}
-
-const updateJupyterOnStart = `-- name: UpdateJupyterOnStart :one
-UPDATE instances
-SET 
-    jupyter_task_arn = $2,
-    jupyter_ip = $3,
-    status = 'running'
-WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
-`
-
-type UpdateJupyterOnStartParams struct {
-	ID             uuid.UUID      `json:"id"`
-	JupyterTaskArn sql.NullString `json:"jupyter_task_arn"`
-	JupyterIp      sql.NullString `json:"jupyter_ip"`
-}
-
-func (q *Queries) UpdateJupyterOnStart(ctx context.Context, arg UpdateJupyterOnStartParams) (Instances, error) {
-	row := q.db.QueryRowContext(ctx, updateJupyterOnStart, arg.ID, arg.JupyterTaskArn, arg.JupyterIp)
-	var i Instances
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Type,
-		&i.Status,
-		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
-		&i.TtlHours,
-		&i.LastActive,
-		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
 	)
 	return i, err
 }
@@ -308,7 +239,7 @@ const updateLastActive = `-- name: UpdateLastActive :one
 UPDATE instances
 SET last_active = $2
 WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
+RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
 `
 
 type UpdateLastActiveParams struct {
@@ -325,53 +256,11 @@ func (q *Queries) UpdateLastActive(ctx context.Context, arg UpdateLastActivePara
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
+		&i.TaskArn,
+		&i.ContainerIp,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
-	)
-	return i, err
-}
-
-const updateVSCodeOnStart = `-- name: UpdateVSCodeOnStart :one
-UPDATE instances
-SET 
-    vscode_task_arn = $2,
-    vscode_ip = $3,
-    status = 'running'
-WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, vscode_task_arn, vscode_ip, jupyter_task_arn, jupyter_ip, ttl_hours, last_active, created_at, task_arn, container_ip
-`
-
-type UpdateVSCodeOnStartParams struct {
-	ID            uuid.UUID      `json:"id"`
-	VscodeTaskArn sql.NullString `json:"vscode_task_arn"`
-	VscodeIp      sql.NullString `json:"vscode_ip"`
-}
-
-func (q *Queries) UpdateVSCodeOnStart(ctx context.Context, arg UpdateVSCodeOnStartParams) (Instances, error) {
-	row := q.db.QueryRowContext(ctx, updateVSCodeOnStart, arg.ID, arg.VscodeTaskArn, arg.VscodeIp)
-	var i Instances
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Type,
-		&i.Status,
-		&i.EfsPath,
-		&i.VscodeTaskArn,
-		&i.VscodeIp,
-		&i.JupyterTaskArn,
-		&i.JupyterIp,
-		&i.TtlHours,
-		&i.LastActive,
-		&i.CreatedAt,
-		&i.TaskArn,
-		&i.ContainerIp,
 	)
 	return i, err
 }

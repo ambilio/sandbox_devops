@@ -12,20 +12,16 @@ import (
 )
 
 type Instances struct {
-	ID             uuid.UUID      `json:"id"`
-	UserID         uuid.UUID      `json:"user_id"`
-	Type           string         `json:"type"`
-	Status         string         `json:"status"`
-	EfsPath        string         `json:"efs_path"`
-	VscodeTaskArn  sql.NullString `json:"vscode_task_arn"`
-	VscodeIp       sql.NullString `json:"vscode_ip"`
-	JupyterTaskArn sql.NullString `json:"jupyter_task_arn"`
-	JupyterIp      sql.NullString `json:"jupyter_ip"`
-	TtlHours       int32          `json:"ttl_hours"`
-	LastActive     time.Time      `json:"last_active"`
-	CreatedAt      time.Time      `json:"created_at"`
-	TaskArn        sql.NullString `json:"task_arn"`
-	ContainerIp    sql.NullString `json:"container_ip"`
+	ID          uuid.UUID      `json:"id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	Type        string         `json:"type"`
+	Status      string         `json:"status"`
+	EfsPath     string         `json:"efs_path"`
+	TaskArn     sql.NullString `json:"task_arn"`
+	ContainerIp sql.NullString `json:"container_ip"`
+	TtlHours    int32          `json:"ttl_hours"`
+	LastActive  time.Time      `json:"last_active"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
 type Users struct {

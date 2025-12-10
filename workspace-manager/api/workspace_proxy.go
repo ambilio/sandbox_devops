@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 
 	db "example.com/m/v2/db/sqlc"
 	"example.com/m/v2/util"
@@ -15,7 +16,7 @@ import (
 func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ✅ get user from JWT
+		// ✅ Auth: user from JWT
 		userIDStr := c.GetString("userID")
 		userUUID, err := uuid.Parse(userIDStr)
 		if err != nil {
@@ -23,64 +24,54 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		// ✅ instance ID
+		// ✅ Instance ID
 		instanceIDStr := c.Param("id")
 		instanceUUID, err := uuid.Parse(instanceIDStr)
 		if err != nil {
-			c.JSON(400, gin.H{"error": "invalid instance"})
+			c.JSON(400, gin.H{"error": "invalid instance id"})
 			return
 		}
 
-		workspaceType := c.Query("type")
-		if workspaceType != "vscode" && workspaceType != "jupyter" {
-			c.JSON(400, gin.H{"error": "invalid workspace type"})
-			return
-		}
-
-		// ✅ load instance
+		// ✅ Load instance
 		inst, err := q.GetInstanceByID(c, instanceUUID)
 		if err != nil || inst.UserID != userUUID {
 			c.JSON(403, gin.H{"error": "forbidden"})
 			return
 		}
 
-		// ✅ select correct IP
-		var targetIP string
-		var port string
-
-		if workspaceType == "vscode" {
-			if !inst.VscodeIp.Valid {
-				c.JSON(404, gin.H{"error": "vscode not running"})
-				return
-			}
-			targetIP = inst.VscodeIp.String
-			port = "8080"
-		} else {
-			if !inst.JupyterIp.Valid {
-				c.JSON(404, gin.H{"error": "jupyter not running"})
-				return
-			}
-			targetIP = inst.JupyterIp.String
-			port = "8888"
+		if !inst.ContainerIp.Valid {
+			c.JSON(404, gin.H{"error": "instance not running"})
+			return
 		}
 
-		targetURL, err := url.Parse("http://" + targetIP + ":" + port)
+		// ✅ Decide port by instance type
+		var port string
+		switch inst.Type {
+		case "vscode":
+			port = "8080"
+		case "jupyter":
+			port = "8888"
+		default:
+			c.JSON(400, gin.H{"error": "unknown instance type"})
+			return
+		}
+
+		targetURL, err := url.Parse("http://" + inst.ContainerIp.String + ":" + port)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "bad target"})
+			c.JSON(500, gin.H{"error": "invalid target"})
 			return
 		}
 
 		proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-		// ✅ WebSocket + headers fix
+		// ✅ Preserve path + websocket support
 		originalDirector := proxy.Director
 		proxy.Director = func(req *http.Request) {
 			originalDirector(req)
 			req.Host = targetURL.Host
-			req.URL.Path = c.Param("path")
+			req.URL.Path = strings.TrimPrefix(c.Request.URL.Path, "/workspaces/"+inst.ID.String())
 		}
 
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
-

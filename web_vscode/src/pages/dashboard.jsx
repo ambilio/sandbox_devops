@@ -12,22 +12,20 @@ export default function Dashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  // actionLoading key: `${id}-${type}` → "start" | "stop"
-  const [actionLoading, setActionLoading] = useState({});
+  const [actionLoading, setActionLoading] = useState({}); // id -> "start" | "stop"
 
   async function load() {
     setLoading(true);
     setError("");
-    const res = await listInstances();
 
+    const res = await listInstances();
     if (res.success) {
       setInstances(res.instances || []);
     } else {
       setError(res.error || "Failed to load instances");
-      if (res.error?.includes("Unauthorized")) {
-        setTimeout(() => handleLogout(), 1500);
-      }
+      if (res.error?.includes("Unauthorized")) handleLogout();
     }
+
     setLoading(false);
   }
 
@@ -35,333 +33,119 @@ export default function Dashboard({ onLogout }) {
     load();
   }, []);
 
-  // 🔹 Create instance of a specific type: "vscode" or "jupyter"
   async function handleCreate(type) {
     setCreating(true);
     setError("");
 
-    const res = await createInstance(type, 12); // 12 hour TTL
-
+    const res = await createInstance(type, 12); // 12h TTL
     if (res.success) {
       await load();
     } else {
-      setError(res.error || `Failed to create ${type} instance`);
-      if (res.error?.includes("Unauthorized")) {
-        setTimeout(() => handleLogout(), 1500);
-      }
+      setError(res.error || `Failed to create ${type}`);
     }
 
     setCreating(false);
   }
 
-  // 🔹 Start instance for its type
-  async function handleStart(id, type) {
-    const key = `${id}-${type}`;
-    setActionLoading((prev) => ({ ...prev, [key]: "start" }));
+  async function handleStart(id) {
+    setActionLoading((p) => ({ ...p, [id]: "start" }));
     setError("");
 
-    const res = await startInstance(id, type);
+    const res = await startInstance(id);
+    if (res.success) await load();
+    else setError(res.error);
 
-    if (res.success) {
-      await load();
-    } else {
-      setError(res.error || `Failed to start ${type} instance`);
-      if (res.error?.includes("Unauthorized")) {
-        setTimeout(() => handleLogout(), 1500);
-      }
-    }
-
-    setActionLoading((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
+    setActionLoading((p) => {
+      const n = { ...p };
+      delete n[id];
+      return n;
     });
   }
 
-  // 🔹 Stop instance for its type
-  async function handleStop(id, type) {
-    const key = `${id}-${type}`;
-    setActionLoading((prev) => ({ ...prev, [key]: "stop" }));
+  async function handleStop(id) {
+    setActionLoading((p) => ({ ...p, [id]: "stop" }));
     setError("");
 
-    const res = await stopInstance(id, type);
+    const res = await stopInstance(id);
+    if (res.success) await load();
+    else setError(res.error);
 
-    if (res.success) {
-      await load();
-    } else {
-      setError(res.error || `Failed to stop ${type} instance`);
-      if (res.error?.includes("Unauthorized")) {
-        setTimeout(() => handleLogout(), 1500);
-      }
-    }
-
-    setActionLoading((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
+    setActionLoading((p) => {
+      const n = { ...p };
+      delete n[id];
+      return n;
     });
   }
 
   function handleLogout() {
     logout();
-    if (onLogout) onLogout();
+    onLogout?.();
   }
 
-  // Helper: ALB URL based on instance type
-  function getWorkspaceUrl(inst) {
-    if (inst.type === "vscode") {
-      return "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/";
-    }
-    if (inst.type === "jupyter") {
-      return "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/";
-    }
-    return "#";
-  }
+  function workspaceUrl(inst) {
+  return inst.type === "vscode"
+    ? "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/"
+    : "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/";
+}
 
   return (
-    <div
-      style={{
-        maxWidth: "1200px",
-        margin: "0 auto",
-        padding: "20px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-          paddingBottom: "20px",
-          borderBottom: "2px solid #eee",
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Instance Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#dc3545",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
-        >
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 20 }}>
+      <header style={{ display: "flex", justifyContent: "space-between" }}>
+        <h1>Workspace Dashboard</h1>
+        <button onClick={handleLogout} style={{ background: "#dc3545", color: "#fff" }}>
           Logout
         </button>
-      </div>
+      </header>
 
-      {error && (
-        <div
-          style={{
-            padding: "12px",
-            marginBottom: "20px",
-            backgroundColor: "#fee",
-            color: "#c33",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div style={{ color: "red", margin: "20px 0" }}>{error}</div>}
 
-      {/* 🔹 Create VS Code / Jupyter separately */}
-      <div style={{ marginBottom: "20px", display: "flex", gap: "12px" }}>
-        <button
-          onClick={() => handleCreate("vscode")}
-          disabled={creating || loading}
-          style={{
-            padding: "12px 24px",
-            backgroundColor: creating ? "#6c8ad4" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: creating ? "not-allowed" : "pointer",
-            fontSize: "16px",
-            fontWeight: "bold",
-          }}
-        >
-          {creating ? "Creating..." : "Create VS Code Instance"}
+      {/* CREATE */}
+      <div style={{ display: "flex", gap: 10, margin: "20px 0" }}>
+        <button disabled={creating} onClick={() => handleCreate("vscode")}>
+          ➕ Create VS Code
         </button>
-
-        <button
-          onClick={() => handleCreate("jupyter")}
-          disabled={creating || loading}
-          style={{
-            padding: "12px 24px",
-            backgroundColor: creating ? "#f1b067" : "#ff9800",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: creating ? "not-allowed" : "pointer",
-            fontSize: "16px",
-            fontWeight: "bold",
-          }}
-        >
-          {creating ? "Creating..." : "Create Jupyter Instance"}
+        <button disabled={creating} onClick={() => handleCreate("jupyter")}>
+          ➕ Create Jupyter
         </button>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-          Loading instances...
-        </div>
+        <p>Loading...</p>
       ) : instances.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            color: "#666",
-            backgroundColor: "#f9f9f9",
-            borderRadius: "8px",
-          }}
-        >
-          No instances found. Create a VS Code or Jupyter instance to get
-          started.
-        </div>
+        <p>No instances yet.</p>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "20px",
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px,1fr))", gap: 20 }}>
           {instances.map((inst) => {
-            const type = inst.type; // 'vscode' or 'jupyter'
-            const keyStart = `${inst.id}-${type}`;
-            const isStarting = actionLoading[keyStart] === "start";
-            const isStopping = actionLoading[keyStart] === "stop";
+            const busy = actionLoading[inst.id];
 
             return (
-              <div
-                key={inst.id}
-                style={{
-                  border: "1px solid #ddd",
-                  borderRadius: "8px",
-                  padding: "20px",
-                  backgroundColor: "white",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                }}
-              >
-                <h3
-                  style={{
-                    marginTop: 0,
-                    marginBottom: "10px",
-                    color: "#333",
-                  }}
-                >
-                  {type === "vscode" ? "VS Code Instance" : "Jupyter Instance"}{" "}
-                  ({inst.id?.substring(0, 8) || "N/A"})
+              <div key={inst.id} style={{ border: "1px solid #ccc", padding: 20 }}>
+                <h3>
+                  {inst.type === "vscode" ? "VS Code" : "Jupyter"} —{" "}
+                  {inst.id.slice(0, 8)}
                 </h3>
 
-                <div style={{ marginBottom: "10px", color: "#666" }}>
-                  <strong>Type:</strong>{" "}
-                  {type === "vscode" ? "VS Code" : "Jupyter Notebook"}
-                </div>
+                <p>Status: <b>{inst.status}</b></p>
 
-                <div style={{ marginBottom: "15px" }}>
-                  <strong>Status:</strong>{" "}
-                  <span
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      backgroundColor:
-                        inst.status === "running"
-                          ? "#d4edda"
-                          : inst.status === "stopped"
-                          ? "#f8d7da"
-                          : "#fff3cd",
-                      color:
-                        inst.status === "running"
-                          ? "#155724"
-                          : inst.status === "stopped"
-                          ? "#721c24"
-                          : "#856404",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {inst.status || "unknown"}
-                  </span>
-                </div>
-
-                {/* Open button when running */}
                 {inst.status === "running" && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <a
-                      href={getWorkspaceUrl(inst)}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "inline-block",
-                        padding: "8px 16px",
-                        backgroundColor: "#007bff",
-                        color: "white",
-                        textDecoration: "none",
-                        borderRadius: "4px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      Open {type === "vscode" ? "VS Code" : "Jupyter"}
-                    </a>
-                  </div>
+                  <a href={workspaceUrl(inst)} target="_blank" rel="noreferrer">
+                    Open Workspace
+                  </a>
                 )}
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    marginTop: "15px",
-                  }}
-                >
+                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                   <button
-                    onClick={() => handleStart(inst.id, type)}
-                    disabled={
-                      isStarting || inst.status === "running" || loading
-                    }
-                    style={{
-                      flex: 1,
-                      padding: "8px",
-                      backgroundColor:
-                        inst.status === "running" ? "#ccc" : "#28a745",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor:
-                        inst.status === "running" || isStarting
-                          ? "not-allowed"
-                          : "pointer",
-                      fontSize: "14px",
-                    }}
+                    onClick={() => handleStart(inst.id)}
+                    disabled={inst.status === "running" || busy === "start"}
                   >
-                    {isStarting ? "Starting..." : "Start"}
+                    {busy === "start" ? "Starting..." : "Start"}
                   </button>
 
                   <button
-                    onClick={() => handleStop(inst.id, type)}
-                    disabled={
-                      isStopping || inst.status === "stopped" || loading
-                    }
-                    style={{
-                      flex: 1,
-                      padding: "8px",
-                      backgroundColor:
-                        inst.status === "stopped" ? "#ccc" : "#dc3545",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor:
-                        inst.status === "stopped" || isStopping
-                          ? "not-allowed"
-                          : "pointer",
-                      fontSize: "14px",
-                    }}
+                    onClick={() => handleStop(inst.id)}
+                    disabled={inst.status === "stopped" || busy === "stop"}
                   >
-                    {isStopping ? "Stopping..." : "Stop"}
+                    {busy === "stop" ? "Stopping..." : "Stop"}
                   </button>
                 </div>
               </div>
