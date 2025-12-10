@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Landing from "./pages/landing";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import { isAuthenticated } from "./api/auth";
@@ -6,34 +7,23 @@ import { isAuthenticated } from "./api/auth";
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("landing"); // landing | login | dashboard
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuth = () => {
-      const auth = isAuthenticated();
-      setAuthenticated(auth);
-      setLoading(false);
-    };
-    checkAuth();
+    const auth = isAuthenticated();
+    setAuthenticated(auth);
+    setView(auth ? "dashboard" : "landing");
+    setLoading(false);
   }, []);
-
-  const handleLogin = () => {
-    setAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setAuthenticated(false);
-  };
 
   if (loading) {
     return (
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center", 
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         height: "100vh",
-        fontSize: "18px",
-        color: "#666"
+        color: "#666",
       }}>
         Loading...
       </div>
@@ -41,13 +31,32 @@ export default function App() {
   }
 
   return (
-    <div>
-      {authenticated ? (
-        <Dashboard onLogout={handleLogout} />
-      ) : (
-        <Login onLogin={handleLogin} />
+    <>
+      {view === "landing" && (
+        <Landing
+          onGetStarted={() =>
+            setView(authenticated ? "dashboard" : "login")
+          }
+        />
       )}
-    </div>
+
+      {view === "login" && (
+        <Login
+          onLogin={() => {
+            setAuthenticated(true);
+            setView("dashboard");
+          }}
+        />
+      )}
+
+      {view === "dashboard" && (
+        <Dashboard
+          onLogout={() => {
+            setAuthenticated(false);
+            setView("landing");
+          }}
+        />
+      )}
+    </>
   );
 }
-
