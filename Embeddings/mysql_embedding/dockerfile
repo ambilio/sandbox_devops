@@ -1,0 +1,27 @@
+FROM debian:12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    gnupg \
+    nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd && \
+    chmod +x /usr/local/bin/ttyd
+
+RUN wget https://dev.mysql.com/get/Downloads/MySQL-Shell/mysql-shell_8.0.36-1debian12_amd64.deb && \
+    apt-get update && \
+    apt-get install -y ./mysql-shell_8.0.36-1debian12_amd64.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY nginx.conf /etc/nginx/nginx.conf
+
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+EXPOSE 80
+
+CMD ["/start.sh"]
