@@ -13,14 +13,15 @@ CREATE TABLE instances (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    -- exactly one workspace type
-    type TEXT NOT NULL CHECK (type IN ('vscode', 'jupyter')),
+    -- now supports vscode, jupyter, mysql
+    type TEXT NOT NULL CHECK (type IN ('vscode', 'jupyter', 'mysql')),
+
     status TEXT NOT NULL DEFAULT 'stopped',
 
-    -- persistent EFS root
+    -- EFS root path for persistent data
     efs_path TEXT NOT NULL,
 
-    -- ECS runtime info (ONE task only)
+    -- ECS runtime fields
     task_arn TEXT,
     container_ip TEXT,
 

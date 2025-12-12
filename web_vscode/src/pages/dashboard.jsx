@@ -58,33 +58,37 @@ export default function Dashboard({ onLogout }) {
   /* ------------ TIMER ------------ */
   function expiresIn(inst) {
     const base = inst.last_active || inst.created_at;
-    return (
-      new Date(base).getTime() + inst.ttl_hours * 3600 * 1000 - Date.now()
-    );
+    return new Date(base).getTime() + inst.ttl_hours * 3600 * 1000 - Date.now();
   }
 
   function fmt(ms) {
     if (ms <= 0) return "Expired";
     const t = Math.floor(ms / 1000);
-    return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m ${t % 60}s`;
+    return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m ${
+      t % 60
+    }s`;
   }
 
-  function workspaceUrl(inst) {
-    return inst.type === "vscode"
-      ? "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/"
-      : "http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/";
-  }
+ function workspaceUrl(inst) {
+  if (inst.type === "vscode")
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/${inst.id}`;
+
+  if (inst.type === "jupyter")
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/${inst.id}`;
+
+  if (inst.type === "mysql")
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/mysql_backend/${inst.id}`;
+}
+
 
   /* ------------ UI ------------ */
   return (
     <div className="app">
       <style>{css}</style>
 
-      {/* floating ambience */}
       <div className="orb o1" />
       <div className="orb o2" />
 
-      {/* NAVBAR */}
       <nav className="nav">
         <h2>Agentic AI Sandbox</h2>
         <div className="nav-right">
@@ -98,23 +102,33 @@ export default function Dashboard({ onLogout }) {
           <p>Create isolated AI-ready development environments.</p>
 
           <div className="actions">
-  <div
-    className="create-btn vscode"
-    onClick={() => handleCreate("vscode")}
-  >
-    <div className="icon vscode-icon">{"</>"}</div>
-    <span>Create VS Code</span>
-  </div>
+            {/* VS Code */}
+            <div
+              className="create-btn vscode"
+              onClick={() => handleCreate("vscode")}
+            >
+              <div className="icon vscode-icon">{"</>"}</div>
+              <span>Create VS Code</span>
+            </div>
 
-  <div
-    className="create-btn jupyter"
-    onClick={() => handleCreate("jupyter")}
-  >
-    <div className="icon jupyter-icon">📓</div>
-    <span>Create Jupyter</span>
-  </div>
-</div>
+            {/* Jupyter */}
+            <div
+              className="create-btn jupyter"
+              onClick={() => handleCreate("jupyter")}
+            >
+              <div className="icon jupyter-icon">📓</div>
+              <span>Create Jupyter</span>
+            </div>
 
+            {/* MySQL */}
+            <div
+              className="create-btn mysql"
+              onClick={() => handleCreate("mysql")}
+            >
+              <div className="icon mysql-icon">🛢️</div>
+              <span>Create MySQL Shell</span>
+            </div>
+          </div>
         </header>
 
         {/* CONTENT */}
@@ -132,7 +146,14 @@ export default function Dashboard({ onLogout }) {
               return (
                 <div className="card" key={inst.id}>
                   <div className="card-head">
-                    <h3>{inst.type === "vscode" ? "VS Code" : "Jupyter"}</h3>
+                    <h3>
+                      {inst.type === "vscode"
+                        ? "VS Code"
+                        : inst.type === "jupyter"
+                        ? "Jupyter"
+                        : "MySQL"}
+                    </h3>
+
                     <span
                       className={`status ${
                         inst.status === "running" ? "run" : "stop"
@@ -143,9 +164,7 @@ export default function Dashboard({ onLogout }) {
                   </div>
 
                   {inst.status === "running" && (
-                    <div
-                      className={`timer ${expiring ? "pulse" : ""}`}
-                    >
+                    <div className={`timer ${expiring ? "pulse" : ""}`}>
                       ⏳ Stops in {fmt(remaining)}
                     </div>
                   )}
@@ -185,9 +204,6 @@ export default function Dashboard({ onLogout }) {
     </div>
   );
 }
-
-/* ===================== CSS ===================== */
-
 const css = `
 .app {
   min-height:100vh;
@@ -441,6 +457,13 @@ main {
 .create-btn:hover::after {
   opacity: 1;
 }
+.create-btn.mysql {
+  background: linear-gradient(135deg, #00758f, #005f73);
+}
 
+/* MySQL icon floating animation */
+.mysql-icon {
+  color: white;
+}
 `;
 

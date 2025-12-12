@@ -11,7 +11,7 @@ export default function WorkspaceCard({
   return (
     <div className="workspace-card">
       <div className="card-header">
-        <h3>{inst.type === "vscode" ? "VS Code Workspace" : "Jupyter Notebook"}</h3>
+        <h3>{inst.type === "vscode" ? "VS Code Workspace" : inst.type === "jupyter" ? "Jupyter Notebook" : "Mysql Shell"}</h3>
         <span className={`status ${inst.status}`}>{inst.status}</span>
       </div>
 

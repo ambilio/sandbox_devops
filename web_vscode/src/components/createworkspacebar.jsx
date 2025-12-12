@@ -7,6 +7,9 @@ export function CreateWorkspaceBar({ onCreateVS, onCreateJupyter, creating }) {
       <button disabled={creating} onClick={onCreateJupyter} className="secondary">
         ➕ Jupyter Notebook
       </button>
+      <button disabled={creating} onClick={onCreateJupyter} className="secondary">
+        ➕ Mysql Shell
+      </button>
     </div>
   );
 }

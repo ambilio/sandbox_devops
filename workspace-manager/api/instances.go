@@ -20,18 +20,7 @@ func NewInstanceHandler(q *db.Queries, ecsM *ecsmanager.ECSManager) *InstanceHan
 	return &InstanceHandler{q: q, ecs: ecsM}
 }
 
-/*
-====================================================
-CREATE INSTANCE (NO ECS TASK HERE)
-Each instance is either vscode OR jupyter
-====================================================
-POST /instances
-Body:
-{
-  "type": "vscode" | "jupyter",
-  "ttl_hours": 12
-}
-*/
+
 func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 	var req struct {
 		Type     string `json:"type"`
@@ -43,10 +32,10 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	if req.Type != "vscode" && req.Type != "jupyter" {
-		c.JSON(400, gin.H{"error": "invalid workspace type"})
-		return
-	}
+	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" {
+    c.JSON(400, gin.H{"error": "invalid workspace type"})
+    return
+}
 
 	userIDStr := c.GetString("userID")
 	userUUID, err := uuid.Parse(userIDStr)
@@ -57,7 +46,6 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 
 	instanceID := uuid.New()
 
-	// ✅ Isolated persistent path
 	efsPath := "/efs/users/" + userUUID.String() + "/" + instanceID.String()
 
 	inst, err := h.q.CreateInstance(c, db.CreateInstanceParams{
@@ -79,12 +67,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 	})
 }
 
-/*
-====================================================
-START INSTANCE (LAUNCH ECS TASK)
-====================================================
-POST /instances/:id/start
-*/
+
 func (h *InstanceHandler) StartInstance(c *gin.Context) {
 	id := c.Param("id")
 
@@ -100,7 +83,6 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	// ✅ already running
 	if inst.Status == "running" {
 		c.JSON(200, gin.H{
 			"message": "already running",
@@ -137,12 +119,7 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 	})
 }
 
-/*
-====================================================
-STOP INSTANCE (STOP ECS TASK)
-====================================================
-POST /instances/:id/stop
-*/
+
 func (h *InstanceHandler) StopInstance(c *gin.Context) {
 	id := c.Param("id")
 
@@ -173,12 +150,7 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "stopped"})
 }
 
-/*
-====================================================
-LIST INSTANCES
-====================================================
-GET /instances
-*/
+
 func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	userIDStr := c.GetString("userID")
 	userUUID, err := uuid.Parse(userIDStr)
@@ -196,12 +168,7 @@ func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	c.JSON(200, instances)
 }
 
-/*
-====================================================
-HEARTBEAT (FOR AUTO-SHUTDOWN LOGIC)
-====================================================
-POST /instances/:id/heartbeat
-*/
+
 func (h *InstanceHandler) Heartbeat(c *gin.Context) {
 	id := c.Param("id")
 

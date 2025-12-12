@@ -16,7 +16,6 @@ import (
 func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// ✅ Auth: user from JWT
 		userIDStr := c.GetString("userID")
 		userUUID, err := uuid.Parse(userIDStr)
 		if err != nil {
@@ -24,7 +23,6 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		// ✅ Instance ID
 		instanceIDStr := c.Param("id")
 		instanceUUID, err := uuid.Parse(instanceIDStr)
 		if err != nil {
@@ -32,7 +30,6 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		// ✅ Load instance
 		inst, err := q.GetInstanceByID(c, instanceUUID)
 		if err != nil || inst.UserID != userUUID {
 			c.JSON(403, gin.H{"error": "forbidden"})
@@ -44,13 +41,14 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		// ✅ Decide port by instance type
 		var port string
 		switch inst.Type {
 		case "vscode":
 			port = "8080"
 		case "jupyter":
 			port = "8888"
+		case "mysql":
+			port = "80"
 		default:
 			c.JSON(400, gin.H{"error": "unknown instance type"})
 			return
@@ -64,7 +62,6 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 
 		proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-		// ✅ Preserve path + websocket support
 		originalDirector := proxy.Director
 		proxy.Director = func(req *http.Request) {
 			originalDirector(req)
