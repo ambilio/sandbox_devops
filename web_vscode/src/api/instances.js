@@ -110,11 +110,11 @@ export async function heartbeat(id) {
 ======================================== */
 function workspaceUrl(inst) {
   if (inst.type === "vscode")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/${inst.id}`;
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/`;
 
   if (inst.type === "jupyter")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/${inst.id}`;
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/`;
 
   if (inst.type === "mysql")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/mysql_backend/${inst.id}`;
+    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/mysql_backend/`;
 }
