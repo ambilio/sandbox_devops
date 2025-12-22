@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 
 	db "example.com/m/v2/db/sqlc"
 	"example.com/m/v2/util"
@@ -23,8 +22,7 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		instanceIDStr := c.Param("id")
-		instanceUUID, err := uuid.Parse(instanceIDStr)
+		instanceUUID, err := uuid.Parse(c.Param("id"))
 		if err != nil {
 			c.JSON(400, gin.H{"error": "invalid instance id"})
 			return
@@ -41,20 +39,10 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		var port string
-		switch inst.Type {
-		case "vscode":
-			port = "8080"
-		case "jupyter":
-			port = "8888"
-		case "mysql":
-			port = "80"
-		default:
-			c.JSON(400, gin.H{"error": "unknown instance type"})
-			return
-		}
-
-		targetURL, err := url.Parse("http://" + inst.ContainerIp.String + ":" + port)
+		port := "80" // nginx in all workspaces
+		targetURL, err := url.Parse(
+			"http://" + inst.ContainerIp.String + ":" + port,
+		)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "invalid target"})
 			return
@@ -62,11 +50,13 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 
 		proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-		originalDirector := proxy.Director
 		proxy.Director = func(req *http.Request) {
-			originalDirector(req)
+			req.URL.Scheme = targetURL.Scheme
+			req.URL.Host = targetURL.Host
 			req.Host = targetURL.Host
-			req.URL.Path = strings.TrimPrefix(c.Request.URL.Path, "/workspaces/"+inst.ID.String())
+
+			// 🔑 key fix
+			req.URL.Path = "/"
 		}
 
 		proxy.ServeHTTP(c.Writer, c.Request)
