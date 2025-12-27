@@ -71,17 +71,16 @@ export default function Dashboard({ onLogout }) {
 
  function workspaceUrl(inst) {
   if (inst.type === "vscode")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/vscode_backend/`;
+    return `http://54.82.110.71:8443/`;
 
   if (inst.type === "jupyter")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/jupyter_backend/`;
+    return `http://54.82.110.71:8888/`;
 
   if (inst.type === "mysql")
-    return `http://ambilio-alb-745903874.ap-southeast-2.elb.amazonaws.com/mysql_backend/`;
+    return `http://54.82.110.71:3306/`;
 }
 
 
-  /* ------------ UI ------------ */
   return (
     <div className="app">
       <style>{css}</style>

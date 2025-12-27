@@ -19,7 +19,7 @@ func NewAutoStopWorker(q *db.Queries, ecs *ecsmanager.ECSManager) *AutoStopWorke
 }
 
 func (w *AutoStopWorker) Start(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute) // ✅ configurable
+	ticker := time.NewTicker(5 * time.Minute) 
 	go func() {
 		for {
 			select {
@@ -41,13 +41,13 @@ func (w *AutoStopWorker) runOnce(ctx context.Context) {
 	}
 
 	for _, inst := range instances {
-		if !inst.TaskArn.Valid {
+		if !inst.ContainerID.Valid {
 			continue
 		}
 
 		log.Printf("🛑 Auto-stopping instance %s\n", inst.ID)
 
-		err := w.ecs.StopTask(ctx, inst.TaskArn.String)
+		err := w.ecs.StopTask(ctx, inst.ContainerID.String)
 		if err != nil {
 			log.Printf("ECS stop failed for %s: %v\n", inst.ID, err)
 			continue

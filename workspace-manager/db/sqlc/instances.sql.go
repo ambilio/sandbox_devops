@@ -19,7 +19,7 @@ INSERT INTO instances (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+RETURNING id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 `
 
 type CreateInstanceParams struct {
@@ -45,8 +45,8 @@ func (q *Queries) CreateInstance(ctx context.Context, arg CreateInstanceParams) 
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.TaskArn,
-		&i.ContainerIp,
+		&i.ContainerID,
+		&i.HostPort,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
@@ -55,7 +55,7 @@ func (q *Queries) CreateInstance(ctx context.Context, arg CreateInstanceParams) 
 }
 
 const getInstanceByID = `-- name: GetInstanceByID :one
-SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+SELECT id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 FROM instances
 WHERE id = $1
 LIMIT 1
@@ -70,8 +70,8 @@ func (q *Queries) GetInstanceByID(ctx context.Context, id uuid.UUID) (Instances,
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.TaskArn,
-		&i.ContainerIp,
+		&i.ContainerID,
+		&i.HostPort,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
@@ -80,11 +80,11 @@ func (q *Queries) GetInstanceByID(ctx context.Context, id uuid.UUID) (Instances,
 }
 
 const listExpiredInstances = `-- name: ListExpiredInstances :many
-SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+SELECT id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 FROM instances
 WHERE
     status = 'running'
-    AND task_arn IS NOT NULL
+    AND container_id IS NOT NULL
     AND (
         created_at + (ttl_hours || ' hours')::interval < NOW()
         OR last_active < NOW() - INTERVAL '30 minutes'
@@ -106,8 +106,8 @@ func (q *Queries) ListExpiredInstances(ctx context.Context) ([]Instances, error)
 			&i.Type,
 			&i.Status,
 			&i.EfsPath,
-			&i.TaskArn,
-			&i.ContainerIp,
+			&i.ContainerID,
+			&i.HostPort,
 			&i.TtlHours,
 			&i.LastActive,
 			&i.CreatedAt,
@@ -126,7 +126,7 @@ func (q *Queries) ListExpiredInstances(ctx context.Context) ([]Instances, error)
 }
 
 const listUserInstances = `-- name: ListUserInstances :many
-SELECT id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+SELECT id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 FROM instances
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -147,8 +147,8 @@ func (q *Queries) ListUserInstances(ctx context.Context, userID uuid.UUID) ([]In
 			&i.Type,
 			&i.Status,
 			&i.EfsPath,
-			&i.TaskArn,
-			&i.ContainerIp,
+			&i.ContainerID,
+			&i.HostPort,
 			&i.TtlHours,
 			&i.LastActive,
 			&i.CreatedAt,
@@ -184,22 +184,22 @@ func (q *Queries) StopExpiredInstance(ctx context.Context, id uuid.UUID) error {
 const updateInstanceOnStart = `-- name: UpdateInstanceOnStart :one
 UPDATE instances
 SET
-    task_arn = $2,
-    container_ip = $3,
+    container_id = $2,
+    host_port = $3,
     status = 'running',
     last_active = NOW()
 WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+RETURNING id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 `
 
 type UpdateInstanceOnStartParams struct {
 	ID          uuid.UUID      `json:"id"`
-	TaskArn     sql.NullString `json:"task_arn"`
-	ContainerIp sql.NullString `json:"container_ip"`
+	ContainerID sql.NullString `json:"container_id"`
+	HostPort    sql.NullInt32  `json:"host_port"`
 }
 
 func (q *Queries) UpdateInstanceOnStart(ctx context.Context, arg UpdateInstanceOnStartParams) (Instances, error) {
-	row := q.db.QueryRowContext(ctx, updateInstanceOnStart, arg.ID, arg.TaskArn, arg.ContainerIp)
+	row := q.db.QueryRowContext(ctx, updateInstanceOnStart, arg.ID, arg.ContainerID, arg.HostPort)
 	var i Instances
 	err := row.Scan(
 		&i.ID,
@@ -207,8 +207,8 @@ func (q *Queries) UpdateInstanceOnStart(ctx context.Context, arg UpdateInstanceO
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.TaskArn,
-		&i.ContainerIp,
+		&i.ContainerID,
+		&i.HostPort,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
@@ -220,11 +220,11 @@ const updateInstanceStatus = `-- name: UpdateInstanceStatus :one
 UPDATE instances
 SET
     status = $2,
-    task_arn = NULL,
-    container_ip = NULL,
+    container_id = NULL,
+    host_port = NULL,
     last_active = NOW()
 WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+RETURNING id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 `
 
 type UpdateInstanceStatusParams struct {
@@ -241,8 +241,8 @@ func (q *Queries) UpdateInstanceStatus(ctx context.Context, arg UpdateInstanceSt
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.TaskArn,
-		&i.ContainerIp,
+		&i.ContainerID,
+		&i.HostPort,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,
@@ -254,7 +254,7 @@ const updateLastActive = `-- name: UpdateLastActive :one
 UPDATE instances
 SET last_active = $2
 WHERE id = $1
-RETURNING id, user_id, type, status, efs_path, task_arn, container_ip, ttl_hours, last_active, created_at
+RETURNING id, user_id, type, status, efs_path, container_id, host_port, ttl_hours, last_active, created_at
 `
 
 type UpdateLastActiveParams struct {
@@ -271,8 +271,8 @@ func (q *Queries) UpdateLastActive(ctx context.Context, arg UpdateLastActivePara
 		&i.Type,
 		&i.Status,
 		&i.EfsPath,
-		&i.TaskArn,
-		&i.ContainerIp,
+		&i.ContainerID,
+		&i.HostPort,
 		&i.TtlHours,
 		&i.LastActive,
 		&i.CreatedAt,

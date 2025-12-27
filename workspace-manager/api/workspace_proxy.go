@@ -34,14 +34,14 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		if !inst.ContainerIp.Valid {
+		if !inst.ContainerID.Valid {
 			c.JSON(404, gin.H{"error": "instance not running"})
 			return
 		}
 
 		port := "80" // nginx in all workspaces
 		targetURL, err := url.Parse(
-			"http://" + inst.ContainerIp.String + ":" + port,
+			"http://" + inst.ContainerID.String + ":" + port,
 		)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "invalid target"})

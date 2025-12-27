@@ -24,7 +24,7 @@ func init() {
 func main() {
 	cfg := util.LoadConfig()
 
-	maindburl := "postgresql://admin:ambiliodb@54.90.85.110:5432/ambiliodb?sslmode=disable"
+	maindburl := "postgresql://admin:ambiliodb@54.82.110.71:5432/ambiliodb?sslmode=disable"
 
 	dbConn, err := sql.Open("pgx", maindburl)
 	if err != nil {

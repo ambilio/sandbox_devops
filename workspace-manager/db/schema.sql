@@ -13,17 +13,16 @@ CREATE TABLE instances (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    -- now supports vscode, jupyter, mysql
+    -- vscode | jupyter | mysql
     type TEXT NOT NULL CHECK (type IN ('vscode', 'jupyter', 'mysql')),
 
     status TEXT NOT NULL DEFAULT 'stopped',
 
-    -- EFS root path for persistent data
     efs_path TEXT NOT NULL,
 
-    -- ECS runtime fields
-    task_arn TEXT,
-    container_ip TEXT,
+    -- Docker runtime fields
+    container_id TEXT,
+    host_port INT,
 
     ttl_hours INT NOT NULL,
     last_active TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -32,3 +31,4 @@ CREATE TABLE instances (
 
 CREATE INDEX idx_instances_user ON instances(user_id);
 CREATE INDEX idx_instances_last_active ON instances(last_active);
+CREATE INDEX idx_instances_status ON instances(status);

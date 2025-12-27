@@ -10,23 +10,25 @@ RETURNING *;
 -- name: UpdateInstanceOnStart :one
 UPDATE instances
 SET
-    task_arn = $2,
-    container_ip = $3,
+    container_id = $2,
+    host_port = $3,
     status = 'running',
     last_active = NOW()
 WHERE id = $1
 RETURNING *;
 
 
+
 -- name: UpdateInstanceStatus :one
 UPDATE instances
 SET
     status = $2,
-    task_arn = NULL,
-    container_ip = NULL,
+    container_id = NULL,
+    host_port = NULL,
     last_active = NOW()
 WHERE id = $1
 RETURNING *;
+
 
 
 -- name: UpdateLastActive :one
@@ -54,11 +56,12 @@ SELECT *
 FROM instances
 WHERE
     status = 'running'
-    AND task_arn IS NOT NULL
+    AND container_id IS NOT NULL
     AND (
         created_at + (ttl_hours || ' hours')::interval < NOW()
         OR last_active < NOW() - INTERVAL '30 minutes'
     );
+
 
 
 

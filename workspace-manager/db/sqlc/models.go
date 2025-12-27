@@ -17,8 +17,8 @@ type Instances struct {
 	Type        string         `json:"type"`
 	Status      string         `json:"status"`
 	EfsPath     string         `json:"efs_path"`
-	TaskArn     sql.NullString `json:"task_arn"`
-	ContainerIp sql.NullString `json:"container_ip"`
+	ContainerID sql.NullString `json:"container_id"`
+	HostPort    sql.NullInt32  `json:"host_port"`
 	TtlHours    int32          `json:"ttl_hours"`
 	LastActive  time.Time      `json:"last_active"`
 	CreatedAt   time.Time      `json:"created_at"`
