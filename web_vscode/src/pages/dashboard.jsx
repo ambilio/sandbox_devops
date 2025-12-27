@@ -69,18 +69,22 @@ export default function Dashboard({ onLogout }) {
     }s`;
   }
 
- function workspaceUrl(inst) {
-  if (inst.type === "vscode")
-    return `http://3.208.28.22:8443/`;
 
-  if (inst.type === "jupyter")
-    return `http://3.208.28.22:8888/`;
+const API_HOST =
+  import.meta.env.VITE_WORKSPACE_HOST || "3.208.28.22";
 
-  if (inst.type === "mysql")
-    return `http://3.208.28.22:3306/`;
+function getHostPort(inst) {
+  if (!inst?.host_port) return null;
+  if (!inst.host_port.Valid) return null;
+  return inst.host_port.Int32;
 }
 
+function workspaceUrl(inst) {
+  const port = getHostPort(inst);
+  if (!port || inst.status !== "running") return null;
 
+  return `http://${API_HOST}:${port}`;
+}
   return (
     <div className="app">
       <style>{css}</style>

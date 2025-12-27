@@ -34,7 +34,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		TTLHours int32  `json:"ttl_hours"`
 	}
 
-	if err := c.BindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
@@ -102,7 +102,7 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	containerID, hostPort, err := h.docker.RunContainer(
+	result, err := h.docker.Run(
 		c.Request.Context(),
 		inst.ID.String(),
 		inst.Type,
@@ -112,21 +112,24 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	p, _ := strconv.Atoi(hostPort)
+
+	port, err := strconv.Atoi(result.HostPort)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "invalid host port"})
+		return
+	}
 
 	_, err = h.q.UpdateInstanceOnStart(c, db.UpdateInstanceOnStartParams{
-	ID: inst.ID,
-	ContainerID: sql.NullString{
-		String: containerID,
-		Valid:  true,
-	},
-	
-	HostPort: sql.NullInt32{
-		Int32: int32(p),
-		Valid: true,
-	},
-})
-
+		ID: inst.ID,
+		ContainerID: sql.NullString{
+			String: result.ContainerID,
+			Valid:  true,
+		},
+		HostPort: sql.NullInt32{
+			Int32: int32(port),
+			Valid: true,
+		},
+	})
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -136,7 +139,7 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		"id":     inst.ID,
 		"type":   inst.Type,
 		"status": "running",
-		"port":   hostPort,
+		"port":   port,
 	})
 }
 
@@ -154,9 +157,8 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 		return
 	}
 
-	containerName := "ws_" + inst.ID.String()
-
-	_ = h.docker.StopContainer(containerName)
+	// Stops VSCode / Jupyter OR MySQL + Adminer safely
+	h.docker.Stop(inst.ID.String(), inst.Type)
 
 	_, _ = h.q.UpdateInstanceStatus(c, db.UpdateInstanceStatusParams{
 		ID:     inst.ID,
@@ -166,6 +168,7 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "stopped"})
 }
 
+/* ========================= LIST ========================= */
 
 func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	userUUID, err := uuid.Parse(c.GetString("userID"))
@@ -183,6 +186,7 @@ func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	c.JSON(200, instances)
 }
 
+/* ========================= HEARTBEAT ========================= */
 
 func (h *InstanceHandler) Heartbeat(c *gin.Context) {
 	instanceID, err := uuid.Parse(c.Param("id"))
