@@ -1,4 +1,4 @@
-const API_URL = "http://54.82.110.71:8080";
+const API_URL = "http://3.208.28.22:8080";
 console.log("Script started");
 
 function signup() {
@@ -22,7 +22,7 @@ async function login() {
     const resultEl = document.getElementById("loginResult");
 
     try {
-        const res = await fetch("http://54.82.110.71:8080/login", {
+        const res = await fetch("http://3.208.28.22:8080/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),

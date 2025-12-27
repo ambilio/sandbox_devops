@@ -71,13 +71,13 @@ export default function Dashboard({ onLogout }) {
 
  function workspaceUrl(inst) {
   if (inst.type === "vscode")
-    return `http://54.82.110.71:8443/`;
+    return `http://3.208.28.22:8443/`;
 
   if (inst.type === "jupyter")
-    return `http://54.82.110.71:8888/`;
+    return `http://3.208.28.22:8888/`;
 
   if (inst.type === "mysql")
-    return `http://54.82.110.71:3306/`;
+    return `http://3.208.28.22:3306/`;
 }
 
 

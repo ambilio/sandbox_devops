@@ -63,13 +63,24 @@ func (d *DockerManager) RunContainer(
 		return "", "", fmt.Errorf("docker port lookup failed: %s", string(portOut))
 	}
 
-	// example output: 0.0.0.0:49123
-	parts := strings.Split(strings.TrimSpace(string(portOut)), ":")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected docker port output: %s", portOut)
+	lines := strings.Split(strings.TrimSpace(string(portOut)), "\n")
+
+
+
+	for _, line := range lines {
+		if strings.Contains(line, ":") {
+			parts := strings.Split(line, ":")
+			port = parts[len(parts)-1]
+			break
+		}
 	}
 
-	hostPort = parts[1]
+	if port == "" {
+		return "", "", fmt.Errorf("could not parse host port from: %s", portOut)
+	}
+
+	hostPort = port
+
 	return containerID, hostPort, nil
 }
 

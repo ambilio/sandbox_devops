@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "http://54.82.110.71:8080";
+const BASE = import.meta.env.VITE_API_URL || "http://3.208.28.22:8080";
 
 async function getAuthHeaders() {
   const token = localStorage.getItem("token");
@@ -110,11 +110,11 @@ export async function heartbeat(id) {
 ======================================== */
 function workspaceUrl(inst) {
   if (inst.type === "vscode")
-    return `http://54.82.110.71:8443/`;
+    return `http://3.208.28.22:8443/`;
 
   if (inst.type === "jupyter")
-    return `http://54.82.110.71:8888/`;
+    return `http://3.208.28.22:8888/`;
 
   if (inst.type === "mysql")
-    return `http://54.82.110.71:8080/mysql_backend/`;
+    return `http://3.208.28.22:8080/mysql_backend/`;
 }
