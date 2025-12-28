@@ -131,8 +131,7 @@ function workspaceUrl(inst) {
               <div className="icon mysql-icon">🛢️</div>
               <span>Create MySQL Shell</span>
             </div>
-          </div>
-          {/* Langflow */}
+            {/* Langflow */}
 <div
   className="create-btn langflow"
   onClick={() => handleCreate("langflow")}
@@ -148,6 +147,7 @@ function workspaceUrl(inst) {
   <div className="icon">🧬</div>
   <span>Create Weaviate</span>
 </div>
+          </div>
 
         </header>
 
@@ -291,9 +291,12 @@ main {
 }
 
 .actions {
-  display:flex;
-  gap:12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
 }
+
 
 .primary, .secondary {
   border:none;
