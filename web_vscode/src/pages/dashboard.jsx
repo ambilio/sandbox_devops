@@ -140,6 +140,14 @@ function workspaceUrl(inst) {
   <div className="icon">🧠</div>
   <span>Create Langflow</span>
 </div>
+{/* Weaviate */}
+<div
+  className="create-btn weaviate"
+  onClick={() => handleCreate("weaviate")}
+>
+  <div className="icon">🧬</div>
+  <span>Create Weaviate</span>
+</div>
 
         </header>
 
@@ -159,13 +167,15 @@ function workspaceUrl(inst) {
                 <div className="card" key={inst.id}>
                   <div className="card-head">
                     <h3>
-                    {{
-                      vscode: "VS Code",
-                      jupyter: "Jupyter",
-                      mysql: "MySQL",
-                      langflow: "Langflow",
-                    }[inst.type] || inst.type}
-                  </h3>
+  {{
+    vscode: "VS Code",
+    jupyter: "Jupyter",
+    mysql: "MySQL",
+    langflow: "Langflow",
+    weaviate: "Weaviate",
+  }[inst.type] || inst.type}
+</h3>
+
 
 
                     <span
@@ -482,6 +492,9 @@ main {
 /* LANGFLOW */
 .create-btn.langflow {
   background: linear-gradient(135deg, #6a00ff, #9b5cff);
+}
+.create-btn.weaviate {
+  background: linear-gradient(135deg, #ff6a00, #ff9f45);
 }
 `;
 

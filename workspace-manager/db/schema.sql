@@ -38,3 +38,10 @@ DROP CONSTRAINT instances_type_check;
 ALTER TABLE instances
 ADD CONSTRAINT instances_type_check
 CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow'));
+
+ALTER TABLE instances
+DROP CONSTRAINT instances_type_check;
+
+ALTER TABLE instances
+ADD CONSTRAINT instances_type_check
+CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow', 'weaviate'));

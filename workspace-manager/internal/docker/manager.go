@@ -38,13 +38,14 @@ func (d *DockerManager) Run(
 
 	case "mysql":
 		return d.runMySQL(ctx, instanceID, dataPath)
+	case "weaviate":
+  return d.runWeaviate(ctx, instanceID, dataPath)
 
 	default:
 		return nil, fmt.Errorf("unknown workspace type: %s", workspaceType)
 	}
 }
 
-/* ---------- Generic Web Workspace ---------- */
 
 func (d *DockerManager) runSingle(
 	ctx context.Context,
@@ -79,7 +80,6 @@ func (d *DockerManager) runSingle(
 	}, nil
 }
 
-/* ---------- MySQL + Adminer ---------- */
 
 func (d *DockerManager) runMySQL(
 	ctx context.Context,
@@ -90,7 +90,6 @@ func (d *DockerManager) runMySQL(
 	mysqlName := "ws_mysql_" + instanceID
 	adminerName := "ws_mysql_adminer_" + instanceID
 
-	// MySQL (persistent)
 	mysqlCmd := exec.CommandContext(
 		ctx,
 		"docker", "run", "-d",
@@ -107,7 +106,6 @@ func (d *DockerManager) runMySQL(
 		return nil, fmt.Errorf("mysql run failed: %s", out)
 	}
 
-	// Adminer UI
 	adminerCmd := exec.CommandContext(
 		ctx,
 		"docker", "run", "-d",
@@ -133,7 +131,65 @@ func (d *DockerManager) runMySQL(
 	}, nil
 }
 
-/* ---------- Utils ---------- */
+func (d *DockerManager) runWeaviate(
+	ctx context.Context,
+	instanceID string,
+	dataPath string,
+) (*RunResult, error) {
+
+	weaviateName := "ws_weaviate_" + instanceID
+	consoleName := "ws_weaviate_console_" + instanceID
+
+	weaviateCmd := exec.CommandContext(
+		ctx,
+		"docker", "run", "-d",
+		"--name", weaviateName,
+		"--network", "ambilio_net",
+		"--restart", "unless-stopped",
+		"-v", dataPath+"/weaviate:/var/lib/weaviate",
+
+		"-e", "AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true",
+		"-e", "PERSISTENCE_DATA_PATH=/var/lib/weaviate",
+		"-e", "DEFAULT_VECTORIZER_MODULE=none",
+		"-e", "ENABLE_MODULES=",
+		"-e", "AUTOSCHEMA_ENABLED=true",
+		"-e", "QUERY_DEFAULTS_LIMIT=25",
+		"-e", "CLUSTER_HOSTNAME="+weaviateName,
+
+		"semitechnologies/weaviate:1.24.4",
+	)
+
+	if out, err := weaviateCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("weaviate run failed: %s", out)
+	}
+
+	consoleCmd := exec.CommandContext(
+		ctx,
+		"docker", "run", "-d",
+		"--name", consoleName,
+		"--network", "ambilio_net",
+		"-p", "0:80", 
+		"--restart", "unless-stopped",
+		"-e", "WEAVIATE_URL=http://"+weaviateName+":8080",
+		"semitechnologies/weaviate-console",
+	)
+
+	if out, err := consoleCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("weaviate console run failed: %s", out)
+	}
+
+	hostPort, err := d.lookupPort(consoleName, "80") // ✅ FIX
+	if err != nil {
+		return nil, err
+	}
+
+	return &RunResult{
+		ContainerID: consoleName,
+		HostPort:    hostPort,
+	}, nil
+}
+
+
 
 func (d *DockerManager) lookupPort(container, port string) (string, error) {
 	cmd := exec.Command("docker", "port", container, port)
@@ -150,4 +206,6 @@ func (d *DockerManager) Stop(instanceID, workspaceType string) {
 	exec.Command("docker", "rm", "-f", "ws_"+instanceID).Run()
 	exec.Command("docker", "rm", "-f", "ws_mysql_"+instanceID).Run()
 	exec.Command("docker", "rm", "-f", "ws_mysql_adminer_"+instanceID).Run()
+	exec.Command("docker", "rm", "-f", "ws_weaviate_"+instanceID).Run()
+	exec.Command("docker", "rm", "-f", "ws_weaviate_console_"+instanceID).Run()
 }

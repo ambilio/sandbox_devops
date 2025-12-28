@@ -38,7 +38,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" && req.Type != "langflow" {
+	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" && req.Type != "langflow" && req.Type != "weaviate" {
 		c.JSON(400, gin.H{"error": "invalid workspace type"})
 		return
 	}
