@@ -26,7 +26,6 @@ func NewInstanceHandler(q *db.Queries) *InstanceHandler {
 	}
 }
 
-/* ========================= CREATE ========================= */
 
 func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 	var req struct {
@@ -39,7 +38,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" {
+	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" && req.Type != "langflow" {
 		c.JSON(400, gin.H{"error": "invalid workspace type"})
 		return
 	}
@@ -82,7 +81,6 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 	})
 }
 
-/* ========================= START ========================= */
 
 func (h *InstanceHandler) StartInstance(c *gin.Context) {
 	instanceID, err := uuid.Parse(c.Param("id"))
@@ -144,6 +142,7 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 }
 
 
+
 func (h *InstanceHandler) StopInstance(c *gin.Context) {
 	instanceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -157,7 +156,6 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 		return
 	}
 
-	// Stops VSCode / Jupyter OR MySQL + Adminer safely
 	h.docker.Stop(inst.ID.String(), inst.Type)
 
 	_, _ = h.q.UpdateInstanceStatus(c, db.UpdateInstanceStatusParams{
@@ -168,7 +166,6 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "stopped"})
 }
 
-/* ========================= LIST ========================= */
 
 func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	userUUID, err := uuid.Parse(c.GetString("userID"))
@@ -186,7 +183,6 @@ func (h *InstanceHandler) ListInstances(c *gin.Context) {
 	c.JSON(200, instances)
 }
 
-/* ========================= HEARTBEAT ========================= */
 
 func (h *InstanceHandler) Heartbeat(c *gin.Context) {
 	instanceID, err := uuid.Parse(c.Param("id"))

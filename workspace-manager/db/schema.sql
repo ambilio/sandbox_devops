@@ -32,3 +32,9 @@ CREATE TABLE instances (
 CREATE INDEX idx_instances_user ON instances(user_id);
 CREATE INDEX idx_instances_last_active ON instances(last_active);
 CREATE INDEX idx_instances_status ON instances(status);
+ALTER TABLE instances
+DROP CONSTRAINT instances_type_check;
+
+ALTER TABLE instances
+ADD CONSTRAINT instances_type_check
+CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow'));

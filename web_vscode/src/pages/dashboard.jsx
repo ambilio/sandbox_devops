@@ -132,6 +132,15 @@ function workspaceUrl(inst) {
               <span>Create MySQL Shell</span>
             </div>
           </div>
+          {/* Langflow */}
+<div
+  className="create-btn langflow"
+  onClick={() => handleCreate("langflow")}
+>
+  <div className="icon">🧠</div>
+  <span>Create Langflow</span>
+</div>
+
         </header>
 
         {/* CONTENT */}
@@ -150,12 +159,14 @@ function workspaceUrl(inst) {
                 <div className="card" key={inst.id}>
                   <div className="card-head">
                     <h3>
-                      {inst.type === "vscode"
-                        ? "VS Code"
-                        : inst.type === "jupyter"
-                        ? "Jupyter"
-                        : "MySQL"}
-                    </h3>
+                    {{
+                      vscode: "VS Code",
+                      jupyter: "Jupyter",
+                      mysql: "MySQL",
+                      langflow: "Langflow",
+                    }[inst.type] || inst.type}
+                  </h3>
+
 
                     <span
                       className={`status ${
@@ -172,16 +183,16 @@ function workspaceUrl(inst) {
                     </div>
                   )}
 
-                  {inst.status === "running" && (
-                    <a
-                      className="open"
-                      href={workspaceUrl(inst)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open Workspace →
-                    </a>
-                  )}
+                  {inst.status === "running" && workspaceUrl(inst) && (
+  <a
+    className="open"
+    href={workspaceUrl(inst)}
+    target="_blank"
+    rel="noreferrer"
+  >
+    Open Workspace →
+  </a>
+)}
 
                   <div className="card-actions">
                     <button
@@ -467,6 +478,10 @@ main {
 /* MySQL icon floating animation */
 .mysql-icon {
   color: white;
+}
+/* LANGFLOW */
+.create-btn.langflow {
+  background: linear-gradient(135deg, #6a00ff, #9b5cff);
 }
 `;
 

@@ -15,7 +15,7 @@ func NewDockerManager() *DockerManager {
 
 type RunResult struct {
 	ContainerID string
-	HostPort    string 
+	HostPort    string
 }
 
 func (d *DockerManager) Run(
@@ -28,29 +28,23 @@ func (d *DockerManager) Run(
 	switch workspaceType {
 
 	case "vscode":
-		return d.runSingle(
-			ctx, instanceID,
-			"vscode_embedding:latest",
-			"8443",
-			dataPath,
-		)
+		return d.runSingle(ctx, instanceID, "vscode_embedding:latest", "8443", dataPath)
 
 	case "jupyter":
-		return d.runSingle(
-			ctx, instanceID,
-			"jupyter_embedding:latest",
-			"8888",
-			dataPath,
-		)
+		return d.runSingle(ctx, instanceID, "jupyter_embedding:latest", "8888", dataPath)
+
+	case "langflow":
+		return d.runSingle(ctx, instanceID, "langflowai/langflow:latest", "7860", dataPath)
 
 	case "mysql":
-		return d.runMySQL(ctx, instanceID)
+		return d.runMySQL(ctx, instanceID, dataPath)
 
 	default:
-		return nil, fmt.Errorf("unknown workspace type")
+		return nil, fmt.Errorf("unknown workspace type: %s", workspaceType)
 	}
 }
 
+/* ---------- Generic Web Workspace ---------- */
 
 func (d *DockerManager) runSingle(
 	ctx context.Context,
@@ -85,23 +79,27 @@ func (d *DockerManager) runSingle(
 	}, nil
 }
 
+/* ---------- MySQL + Adminer ---------- */
 
 func (d *DockerManager) runMySQL(
 	ctx context.Context,
 	instanceID string,
+	dataPath string,
 ) (*RunResult, error) {
 
 	mysqlName := "ws_mysql_" + instanceID
 	adminerName := "ws_mysql_adminer_" + instanceID
 
+	// MySQL (persistent)
 	mysqlCmd := exec.CommandContext(
 		ctx,
 		"docker", "run", "-d",
 		"--name", mysqlName,
 		"--network", "ambilio_net",
-		"-e", "MYSQL_ALLOW_EMPTY_PASSWORD=yes",
-		"-e", "MYSQL_DATABASE=workspace",
 		"--restart", "unless-stopped",
+		"-e", "MYSQL_ROOT_PASSWORD=root",
+		"-e", "MYSQL_DATABASE=workspace",
+		"-v", dataPath+"/mysql:/var/lib/mysql",
 		"mysql:8.0",
 	)
 
@@ -109,6 +107,7 @@ func (d *DockerManager) runMySQL(
 		return nil, fmt.Errorf("mysql run failed: %s", out)
 	}
 
+	// Adminer UI
 	adminerCmd := exec.CommandContext(
 		ctx,
 		"docker", "run", "-d",
@@ -119,8 +118,7 @@ func (d *DockerManager) runMySQL(
 		"adminer",
 	)
 
-	out, err := adminerCmd.CombinedOutput()
-	if err != nil {
+	if out, err := adminerCmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("adminer run failed: %s", out)
 	}
 
@@ -130,11 +128,12 @@ func (d *DockerManager) runMySQL(
 	}
 
 	return &RunResult{
-		ContainerID: mysqlName, 
-		HostPort:    hostPort,  
+		ContainerID: mysqlName,
+		HostPort:    hostPort,
 	}, nil
 }
 
+/* ---------- Utils ---------- */
 
 func (d *DockerManager) lookupPort(container, port string) (string, error) {
 	cmd := exec.Command("docker", "port", container, port)
