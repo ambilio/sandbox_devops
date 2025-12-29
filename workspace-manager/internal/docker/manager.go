@@ -178,7 +178,7 @@ func (d *DockerManager) runWeaviate(
 		return nil, fmt.Errorf("weaviate console run failed: %s", out)
 	}
 
-	hostPort, err := d.lookupPort(consoleName, "80") // ✅ FIX
+	hostPort, err := d.lookupPort(consoleName, "80") 
 	if err != nil {
 		return nil, err
 	}
