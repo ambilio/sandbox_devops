@@ -21,6 +21,7 @@ export default function Dashboard({ onLogout }) {
     if (res.success) setInstances(res.instances || []);
     setLoading(false);
   }
+  const [showMyInstances, setShowMyInstances] = useState(false);
 
   useEffect(() => {
     load();
@@ -35,6 +36,116 @@ export default function Dashboard({ onLogout }) {
     await load();
     setCreating(false);
   }
+
+
+  function renderInstancesByType({ onlyRunning = false }) {
+  return (
+    <div className="columns">
+      {TYPES.map(({ key, label, icon }) => {
+        const list = instances.filter(
+          (i) =>
+            i.type === key &&
+            (!onlyRunning || i.status === "running")
+        );
+
+        if (list.length === 0) return null;
+
+        const sectionKey = `${onlyRunning ? "running" : "all"}-${key}`;
+        const isOpen = openSections[sectionKey];
+
+        return (
+          <div className="column" key={key}>
+            <div
+              className="column-header"
+              onClick={() => toggleSection(sectionKey)}
+            >
+              <span className="col-title">
+                {icon} {label}
+              </span>
+
+              <span className="col-meta">
+                {list.filter(i => i.status === "running").length} running /{" "}
+                {list.length} total
+              </span>
+
+              <span className="chev">{isOpen ? "▼" : "▶"}</span>
+            </div>
+
+            <div className={`column-body ${isOpen ? "open" : ""}`}>
+              {list.map(renderInstanceCard)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+  function renderInstanceCard(inst) {
+  const remaining = expiresIn(inst);
+  const expiring = remaining < 15 * 60 * 1000;
+  const busy = actionLoading[inst.id];
+
+  const TYPE_LABELS = {
+    vscode: "VS Code",
+    jupyter: "Jupyter",
+    mysql: "MySQL",
+    langflow: "Langflow",
+    weaviate: "Weaviate",
+  };
+
+  return (
+    <div className="card mini" key={inst.id}>
+      <div className="card-head">
+        <span className="type-pill">{TYPE_LABELS[inst.type]}</span>
+
+        <span
+          className={`status ${
+            inst.status === "running" ? "run" : "stop"
+          }`}
+        >
+          {inst.status}
+        </span>
+      </div>
+
+      {inst.status === "running" && (
+        <div className={`timer ${expiring ? "pulse" : ""}`}>
+          ⏳ {fmt(remaining)}
+        </div>
+      )}
+
+      {inst.status === "running" && workspaceUrl(inst) && (
+        <a
+          className="open"
+          href={workspaceUrl(inst)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open →
+        </a>
+      )}
+
+      <div className="card-actions">
+        <button
+          onClick={() => handleStart(inst.id)}
+          disabled={inst.status === "running" || busy}
+        >
+          Start
+        </button>
+        <button
+          className="danger"
+          onClick={() => handleStop(inst.id)}
+          disabled={inst.status === "stopped" || busy}
+        >
+          Stop
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 
   async function handleStart(id) {
     setActionLoading((p) => ({ ...p, [id]: "start" }));
@@ -55,11 +166,37 @@ export default function Dashboard({ onLogout }) {
     onLogout?.();
   }
 
+  const [openSections, setOpenSections] = useState({});
+
+  function toggleSection(type) {
+    setOpenSections((p) => ({
+      ...p,
+      [type]: !p[type],
+    }));
+  }
+
+  
+
+
+
   /* ------------ TIMER ------------ */
   function expiresIn(inst) {
     const base = inst.last_active || inst.created_at;
     return new Date(base).getTime() + inst.ttl_hours * 3600 * 1000 - Date.now();
   }
+
+  const TYPES = [
+  { key: "vscode", label: "VS Code", icon: "</>" },
+  { key: "jupyter", label: "Jupyter", icon: "📓" },
+  { key: "mysql", label: "MySQL", icon: "🛢️" },
+  { key: "langflow", label: "Langflow", icon: "🧠" },
+  { key: "weaviate", label: "Weaviate", icon: "🧬" },
+];
+
+function instancesByType(type) {
+  return instances.filter((i) => i.type === type);
+}
+
 
   function fmt(ms) {
     if (ms <= 0) return "Expired";
@@ -103,6 +240,59 @@ function workspaceUrl(inst) {
         <header className="hero">
           <h1>Workspaces</h1>
           <p>Create isolated AI-ready development environments.</p>
+
+          <div
+        className={`my-instances-toggle ${showMyInstances ? "open" : ""}`}
+        onClick={() => setShowMyInstances((v) => !v)}
+      >
+        <span>📦 My Instances</span>
+        <span className="chevron">⌄</span>
+      </div>
+<div
+  className={`my-instances-panel ${
+    showMyInstances ? "expanded" : "collapsed"
+  }`}
+>
+  {instances.filter((i) => i.status === "running").length === 0 ? (
+    <div className="empty">No running instances</div>
+  ) : (
+    <div className="slider-wrapper">
+      <button
+        className="slider-btn left"
+        onClick={() =>
+          document.getElementById("myInstancesRow")?.scrollBy({
+            left: -300,
+            behavior: "smooth",
+          })
+        }
+      >
+        ◀
+      </button>
+
+      <div className="horizontal-scroll" id="myInstancesRow">
+        {instances
+          .filter((i) => i.status === "running")
+          .map(renderInstanceCard)}
+      </div>
+
+      <button
+        className="slider-btn right"
+        onClick={() =>
+          document.getElementById("myInstancesRow")?.scrollBy({
+            left: 300,
+            behavior: "smooth",
+          })
+        }
+      >
+        ▶
+      </button>
+    </div>
+  )}
+</div>
+
+
+
+
 
           <div className="actions">
             {/* VS Code */}
@@ -151,79 +341,38 @@ function workspaceUrl(inst) {
 
         </header>
 
-        {/* CONTENT */}
-        {loading ? (
-          <p className="loading">Loading workspaces…</p>
-        ) : instances.length === 0 ? (
-          <div className="empty">No workspaces created yet.</div>
-        ) : (
-          <div className="grid">
-            {instances.map((inst) => {
-              const remaining = expiresIn(inst);
-              const expiring = remaining < 15 * 60 * 1000;
-              const busy = actionLoading[inst.id];
+        <section className="all-instances">
+  <h2 className="section-title">All Instances</h2>
 
-              return (
-                <div className="card" key={inst.id}>
-                  <div className="card-head">
-                    <h3>
-  {{
-    vscode: "VS Code",
-    jupyter: "Jupyter",
-    mysql: "MySQL",
-    langflow: "Langflow",
-    weaviate: "Weaviate",
-  }[inst.type] || inst.type}
-</h3>
+  {TYPES.map(({ key, label, icon }) => {
+    const list = instances.filter((i) => i.type === key);
+    if (list.length === 0) return null;
 
+    const open = openSections[`all-${key}`];
 
+    return (
+      <div className="type-row" key={key}>
+        {/* CENTERED BUTTON */}
+        <div
+          className={`type-toggle ${open ? "open" : ""}`}
+          onClick={() => toggleSection(`all-${key}`)}
+        >
+          <span className="type-icon">{icon}</span>
+          <span>{label}</span>
+          <span className="chev">{open ? "▼" : "▶"}</span>
+        </div>
 
-                    <span
-                      className={`status ${
-                        inst.status === "running" ? "run" : "stop"
-                      }`}
-                    >
-                      {inst.status}
-                    </span>
-                  </div>
-
-                  {inst.status === "running" && (
-                    <div className={`timer ${expiring ? "pulse" : ""}`}>
-                      ⏳ Stops in {fmt(remaining)}
-                    </div>
-                  )}
-
-                  {inst.status === "running" && workspaceUrl(inst) && (
-  <a
-    className="open"
-    href={workspaceUrl(inst)}
-    target="_blank"
-    rel="noreferrer"
-  >
-    Open Workspace →
-  </a>
-)}
-
-                  <div className="card-actions">
-                    <button
-                      onClick={() => handleStart(inst.id)}
-                      disabled={inst.status === "running" || busy}
-                    >
-                      {busy === "start" ? "Starting…" : "Start"}
-                    </button>
-                    <button
-                      className="danger"
-                      onClick={() => handleStop(inst.id)}
-                      disabled={inst.status === "stopped" || busy}
-                    >
-                      {busy === "stop" ? "Stopping…" : "Stop"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        {/* HORIZONTAL SLIDER */}
+        <div className={`type-slider ${open ? "show" : ""}`}>
+          <div className="horizontal-scroll">
+            {list.map(renderInstanceCard)}
           </div>
-        )}
+        </div>
+      </div>
+    );
+  })}
+</section>
+
       </main>
     </div>
   );
@@ -499,5 +648,235 @@ main {
 .create-btn.weaviate {
   background: linear-gradient(135deg, #ff6a00, #ff9f45);
 }
+
+/* ================= MY INSTANCES DROPDOWN ================= */
+
+.my-instances-toggle {
+  margin-top: 32px;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.my-instances-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+.my-instances-toggle .chevron {
+  transition: transform 0.3s ease;
+}
+
+.my-instances-toggle.open .chevron {
+  transform: rotate(180deg);
+}
+
+/* PANEL */
+
+.my-instances-panel {
+  overflow: hidden;
+  transition:
+    max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.my-instances-panel.collapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.my-instances-panel.expanded {
+  max-height: 2000px; /* large enough */
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 24px;
+}
+.type-pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 600;
+}
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.column {
+  background: rgba(255,255,255,0.75);
+  border-radius: 18px;
+  padding: 14px;
+  backdrop-filter: blur(10px);
+}
+
+.column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.col-title {
+  font-size: 15px;
+}
+
+.col-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.column-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.45s ease;
+  opacity: 0;
+}
+
+.column-body.open {
+  max-height: 1000px;
+  opacity: 1;
+  margin-top: 12px;
+}
+/* ===== ALL INSTANCES LAYOUT ===== */
+
+.all-instances {
+  margin-top: 60px;
+}
+
+/* ONE ROW PER TYPE */
+.type-row {
+  margin-bottom: 42px;
+}
+
+/* CENTERED TYPE BUTTON */
+.type-toggle {
+  margin: 0 auto 18px;
+  max-width: 420px;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: all 0.35s ease;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+}
+
+.type-toggle:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+.type-toggle.open {
+  background: linear-gradient(135deg, #6c63ff, #4f46e5);
+}
+
+/* ICON */
+.type-icon {
+  font-size: 20px;
+}
+
+/* SLIDER CONTAINER */
+.type-slider {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition:
+    max-height 0.6s ease,
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.type-slider.show {
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* HORIZONTAL SCROLL */
+.horizontal-scroll {
+  display: flex;
+  gap: 18px;
+  padding: 18px 10px 10px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
+/* HIDE SCROLLBAR (CLEAN) */
+.horizontal-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.horizontal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+}
+
+/* MINI CARD TWEAK FOR HORIZONTAL */
+.card.mini {
+  min-width: 260px;
+  flex-shrink: 0;
+}
+/* ===== SLIDER WITH BUTTONS ===== */
+
+.slider-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  color: white;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+
+.slider-btn:hover {
+  transform: scale(1.12);
+  background: linear-gradient(135deg, #6c63ff, #4f46e5);
+}
+
+.horizontal-scroll {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 10px 6px;
+}
+
+/* hide ugly scrollbar */
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 `;
 
