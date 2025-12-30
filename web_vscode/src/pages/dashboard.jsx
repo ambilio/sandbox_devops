@@ -38,50 +38,6 @@ export default function Dashboard({ onLogout }) {
   }
 
 
-  function renderInstancesByType({ onlyRunning = false }) {
-  return (
-    <div className="columns">
-      {TYPES.map(({ key, label, icon }) => {
-        const list = instances.filter(
-          (i) =>
-            i.type === key &&
-            (!onlyRunning || i.status === "running")
-        );
-
-        if (list.length === 0) return null;
-
-        const sectionKey = `${onlyRunning ? "running" : "all"}-${key}`;
-        const isOpen = openSections[sectionKey];
-
-        return (
-          <div className="column" key={key}>
-            <div
-              className="column-header"
-              onClick={() => toggleSection(sectionKey)}
-            >
-              <span className="col-title">
-                {icon} {label}
-              </span>
-
-              <span className="col-meta">
-                {list.filter(i => i.status === "running").length} running /{" "}
-                {list.length} total
-              </span>
-
-              <span className="chev">{isOpen ? "▼" : "▶"}</span>
-            </div>
-
-            <div className={`column-body ${isOpen ? "open" : ""}`}>
-              {list.map(renderInstanceCard)}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-
   function renderInstanceCard(inst) {
   const remaining = expiresIn(inst);
   const expiring = remaining < 15 * 60 * 1000;
@@ -341,37 +297,71 @@ function workspaceUrl(inst) {
 
         </header>
 
-        <section className="all-instances">
+        
+
+
+  <section className="all-instances">
   <h2 className="section-title">All Instances</h2>
 
   {TYPES.map(({ key, label, icon }) => {
     const list = instances.filter((i) => i.type === key);
     if (list.length === 0) return null;
 
-    const open = openSections[`all-${key}`];
+    const openKey = `all-${key}`;
 
     return (
       <div className="type-row" key={key}>
-        {/* CENTERED BUTTON */}
+        {/* CENTER BUTTON */}
         <div
-          className={`type-toggle ${open ? "open" : ""}`}
-          onClick={() => toggleSection(`all-${key}`)}
+          className={`type-toggle ${openSections[openKey] ? "open" : ""}`}
+          onClick={() => toggleSection(openKey)}
         >
           <span className="type-icon">{icon}</span>
           <span>{label}</span>
-          <span className="chev">{open ? "▼" : "▶"}</span>
+          <span className="chevron">
+            {openSections[openKey] ? "⌄" : "›"}
+          </span>
         </div>
 
-        {/* HORIZONTAL SLIDER */}
-        <div className={`type-slider ${open ? "show" : ""}`}>
-          <div className="horizontal-scroll">
-            {list.map(renderInstanceCard)}
+        {/* SLIDER */}
+        <div
+          className={`type-slider ${
+            openSections[openKey] ? "show" : ""
+          }`}
+        >
+          <div className="slider-wrapper">
+            <button
+              className="slider-btn left"
+              onClick={() =>
+                document
+                  .getElementById(`row-${key}`)
+                  ?.scrollBy({ left: -300, behavior: "smooth" })
+              }
+            >
+              ◀
+            </button>
+
+            <div className="horizontal-scroll" id={`row-${key}`}>
+              {list.map(renderInstanceCard)}
+            </div>
+
+            <button
+              className="slider-btn right"
+              onClick={() =>
+                document
+                  .getElementById(`row-${key}`)
+                  ?.scrollBy({ left: 300, behavior: "smooth" })
+              }
+            >
+              ▶
+            </button>
           </div>
         </div>
       </div>
     );
   })}
 </section>
+
 
       </main>
     </div>
