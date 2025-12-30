@@ -12,7 +12,7 @@ export default function Dashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
-  const [, forceTick] = useState(0);
+  const [view, setView] = useState("all"); // all | my
 
   /* ------------ LOAD ------------ */
   async function load() {
@@ -21,12 +21,9 @@ export default function Dashboard({ onLogout }) {
     if (res.success) setInstances(res.instances || []);
     setLoading(false);
   }
-  const [showMyInstances, setShowMyInstances] = useState(false);
 
   useEffect(() => {
     load();
-    const t = setInterval(() => forceTick((x) => x + 1), 1000);
-    return () => clearInterval(t);
   }, []);
 
   /* ------------ ACTIONS ------------ */
@@ -36,72 +33,6 @@ export default function Dashboard({ onLogout }) {
     await load();
     setCreating(false);
   }
-
-
-  function renderInstanceCard(inst) {
-  const remaining = expiresIn(inst);
-  const expiring = remaining < 15 * 60 * 1000;
-  const busy = actionLoading[inst.id];
-
-  const TYPE_LABELS = {
-    vscode: "VS Code",
-    jupyter: "Jupyter",
-    mysql: "MySQL",
-    langflow: "Langflow",
-    weaviate: "Weaviate",
-  };
-
-  return (
-    <div className="card mini" key={inst.id}>
-      <div className="card-head">
-        <span className="type-pill">{TYPE_LABELS[inst.type]}</span>
-
-        <span
-          className={`status ${
-            inst.status === "running" ? "run" : "stop"
-          }`}
-        >
-          {inst.status}
-        </span>
-      </div>
-
-      {inst.status === "running" && (
-        <div className={`timer ${expiring ? "pulse" : ""}`}>
-          ⏳ {fmt(remaining)}
-        </div>
-      )}
-
-      {inst.status === "running" && workspaceUrl(inst) && (
-        <a
-          className="open"
-          href={workspaceUrl(inst)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open →
-        </a>
-      )}
-
-      <div className="card-actions">
-        <button
-          onClick={() => handleStart(inst.id)}
-          disabled={inst.status === "running" || busy}
-        >
-          Start
-        </button>
-        <button
-          className="danger"
-          onClick={() => handleStop(inst.id)}
-          disabled={inst.status === "stopped" || busy}
-        >
-          Stop
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
 
   async function handleStart(id) {
     setActionLoading((p) => ({ ...p, [id]: "start" }));
@@ -122,62 +53,38 @@ export default function Dashboard({ onLogout }) {
     onLogout?.();
   }
 
-  const [openSections, setOpenSections] = useState({});
-
-  function toggleSection(type) {
-    setOpenSections((p) => ({
-      ...p,
-      [type]: !p[type],
-    }));
-  }
-
-  
-
-
-
-  /* ------------ TIMER ------------ */
+  /* ------------ HELPERS ------------ */
   function expiresIn(inst) {
     const base = inst.last_active || inst.created_at;
     return new Date(base).getTime() + inst.ttl_hours * 3600 * 1000 - Date.now();
   }
 
-  const TYPES = [
-  { key: "vscode", label: "VS Code", icon: "</>" },
-  { key: "jupyter", label: "Jupyter", icon: "📓" },
-  { key: "mysql", label: "MySQL", icon: "🛢️" },
-  { key: "langflow", label: "Langflow", icon: "🧠" },
-  { key: "weaviate", label: "Weaviate", icon: "🧬" },
-];
-
-function instancesByType(type) {
-  return instances.filter((i) => i.type === type);
-}
-
-
   function fmt(ms) {
     if (ms <= 0) return "Expired";
     const t = Math.floor(ms / 1000);
-    return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m ${
-      t % 60
-    }s`;
+    return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m ${t % 60}s`;
   }
 
+  const API_HOST =
+    import.meta.env.VITE_WORKSPACE_HOST || "3.208.28.22";
 
-const API_HOST =
-  import.meta.env.VITE_WORKSPACE_HOST || "3.208.28.22";
+  function getHostPort(inst) {
+    if (!inst?.host_port?.Valid) return null;
+    return inst.host_port.Int32;
+  }
 
-function getHostPort(inst) {
-  if (!inst?.host_port) return null;
-  if (!inst.host_port.Valid) return null;
-  return inst.host_port.Int32;
-}
+  function workspaceUrl(inst) {
+    const port = getHostPort(inst);
+    if (!port || inst.status !== "running") return null;
+    return `http://${API_HOST}:${port}`;
+  }
 
-function workspaceUrl(inst) {
-  const port = getHostPort(inst);
-  if (!port || inst.status !== "running") return null;
+  const visibleInstances =
+    view === "my"
+      ? instances.filter((i) => i.status === "running")
+      : instances;
 
-  return `http://${API_HOST}:${port}`;
-}
+  /* ------------ UI ------------ */
   return (
     <div className="app">
       <style>{css}</style>
@@ -197,177 +104,153 @@ function workspaceUrl(inst) {
           <h1>Workspaces</h1>
           <p>Create isolated AI-ready development environments.</p>
 
-          <div
-        className={`my-instances-toggle ${showMyInstances ? "open" : ""}`}
-        onClick={() => setShowMyInstances((v) => !v)}
-      >
-        <span>📦 My Instances</span>
-        <span className="chevron">⌄</span>
-      </div>
-<div
-  className={`my-instances-panel ${
-    showMyInstances ? "expanded" : "collapsed"
-  }`}
->
-  {instances.filter((i) => i.status === "running").length === 0 ? (
-    <div className="empty">No running instances</div>
-  ) : (
-    <div className="slider-wrapper">
-      <button
-        className="slider-btn left"
-        onClick={() =>
-          document.getElementById("myInstancesRow")?.scrollBy({
-            left: -300,
-            behavior: "smooth",
-          })
-        }
-      >
-        ◀
-      </button>
-
-      <div className="horizontal-scroll" id="myInstancesRow">
-        {instances
-          .filter((i) => i.status === "running")
-          .map(renderInstanceCard)}
-      </div>
-
-      <button
-        className="slider-btn right"
-        onClick={() =>
-          document.getElementById("myInstancesRow")?.scrollBy({
-            left: 300,
-            behavior: "smooth",
-          })
-        }
-      >
-        ▶
-      </button>
-    </div>
-  )}
-</div>
-
-
-
-
-
+          {/* ===== CREATE BUTTONS (UNCHANGED) ===== */}
           <div className="actions">
-            {/* VS Code */}
-            <div
-              className="create-btn vscode"
-              onClick={() => handleCreate("vscode")}
-            >
-              <div className="icon vscode-icon">{"</>"}</div>
+            <div className="create-btn vscode" onClick={() => handleCreate("vscode")}>
+              <div className="icon">{"</>"}</div>
               <span>Create VS Code</span>
             </div>
 
-            {/* Jupyter */}
-            <div
-              className="create-btn jupyter"
-              onClick={() => handleCreate("jupyter")}
-            >
-              <div className="icon jupyter-icon">📓</div>
+            <div className="create-btn jupyter" onClick={() => handleCreate("jupyter")}>
+              <div className="icon">📓</div>
               <span>Create Jupyter</span>
             </div>
 
-            {/* MySQL */}
-            <div
-              className="create-btn mysql"
-              onClick={() => handleCreate("mysql")}
-            >
-              <div className="icon mysql-icon">🛢️</div>
+            <div className="create-btn mysql" onClick={() => handleCreate("mysql")}>
+              <div className="icon">🛢️</div>
               <span>Create MySQL Shell</span>
             </div>
-            {/* Langflow */}
-<div
-  className="create-btn langflow"
-  onClick={() => handleCreate("langflow")}
->
-  <div className="icon">🧠</div>
-  <span>Create Langflow</span>
-</div>
-{/* Weaviate */}
-<div
-  className="create-btn weaviate"
-  onClick={() => handleCreate("weaviate")}
->
-  <div className="icon">🧬</div>
-  <span>Create Weaviate</span>
-</div>
-          </div>
 
-        </header>
-
-        
-
-
-  <section className="all-instances">
-  <h2 className="section-title">All Instances</h2>
-
-  {TYPES.map(({ key, label, icon }) => {
-    const list = instances.filter((i) => i.type === key);
-    if (list.length === 0) return null;
-
-    const openKey = `all-${key}`;
-
-    return (
-      <div className="type-row" key={key}>
-        {/* CENTER BUTTON */}
-        <div
-          className={`type-toggle ${openSections[openKey] ? "open" : ""}`}
-          onClick={() => toggleSection(openKey)}
-        >
-          <span className="type-icon">{icon}</span>
-          <span>{label}</span>
-          <span className="chevron">
-            {openSections[openKey] ? "⌄" : "›"}
-          </span>
-        </div>
-
-        {/* SLIDER */}
-        <div
-          className={`type-slider ${
-            openSections[openKey] ? "show" : ""
-          }`}
-        >
-          <div className="slider-wrapper">
-            <button
-              className="slider-btn left"
-              onClick={() =>
-                document
-                  .getElementById(`row-${key}`)
-                  ?.scrollBy({ left: -300, behavior: "smooth" })
-              }
-            >
-              ◀
-            </button>
-
-            <div className="horizontal-scroll" id={`row-${key}`}>
-              {list.map(renderInstanceCard)}
+            <div className="create-btn langflow" onClick={() => handleCreate("langflow")}>
+              <div className="icon">🧠</div>
+              <span>Create Langflow</span>
             </div>
 
-            <button
-              className="slider-btn right"
-              onClick={() =>
-                document
-                  .getElementById(`row-${key}`)
-                  ?.scrollBy({ left: 300, behavior: "smooth" })
-              }
-            >
-              ▶
-            </button>
+            <div className="create-btn weaviate" onClick={() => handleCreate("weaviate")}>
+              <div className="icon">🧬</div>
+              <span>Create Weaviate</span>
+            </div>
           </div>
+        </header>
+
+        {/* ===== INSTANCE SWITCH (NEW, CLEAN) ===== */}
+        <div className="instance-switch">
+          <button
+            className={view === "all" ? "active" : ""}
+            onClick={() => setView("all")}
+          >
+            All Instances
+          </button>
+          <button
+            className={view === "my" ? "active" : ""}
+            onClick={() => setView("my")}
+          >
+            My Instances
+          </button>
         </div>
-      </div>
-    );
-  })}
-</section>
 
+        {/* ===== INSTANCE GRID (ORIGINAL TILE STYLE) ===== */}
+        {loading ? (
+          <p className="loading">Loading workspaces…</p>
+        ) : visibleInstances.length === 0 ? (
+          <div className="empty">
+            {view === "my"
+              ? "No running instances"
+              : "No workspaces created yet"}
+          </div>
+        ) : (
+          <div className="grid">
+            {visibleInstances.map((inst) => {
+              const busy = actionLoading[inst.id];
+              return (
+                <div className="card" key={inst.id}>
+                  <div className="card-head">
+                    <h3>
+                      {{
+                        vscode: "VS Code",
+                        jupyter: "Jupyter",
+                        mysql: "MySQL",
+                        langflow: "Langflow",
+                        weaviate: "Weaviate",
+                      }[inst.type]}
+                    </h3>
+                    <span
+                      className={`status ${
+                        inst.status === "running" ? "run" : "stop"
+                      }`}
+                    >
+                      {inst.status}
+                    </span>
+                  </div>
 
+                  {inst.status === "running" && (
+                    <div className="timer">
+                      ⏳ Stops in {fmt(expiresIn(inst))}
+                    </div>
+                  )}
+
+                  {inst.status === "running" && workspaceUrl(inst) && (
+                    <a
+                      className="open"
+                      href={workspaceUrl(inst)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Workspace →
+                    </a>
+                  )}
+
+                  <div className="card-actions">
+                    <button
+                      onClick={() => handleStart(inst.id)}
+                      disabled={inst.status === "running" || busy}
+                    >
+                      Start
+                    </button>
+                    <button
+                      className="danger"
+                      onClick={() => handleStop(inst.id)}
+                      disabled={inst.status === "stopped" || busy}
+                    >
+                      Stop
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
 }
+
+
 const css = `
+.instance-switch {
+  display: flex;
+  gap: 6px;
+  background: #e5e7eb;
+  padding: 6px;
+  border-radius: 999px;
+  width: fit-content;
+  margin: 40px auto 24px;
+}
+
+.instance-switch button {
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.instance-switch button.active {
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+}
 .app {
   min-height:100vh;
   background:
