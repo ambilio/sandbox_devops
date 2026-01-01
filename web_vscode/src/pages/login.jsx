@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { login, signup } from "../api/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -8,6 +9,8 @@ export default function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const navigate = useNavigate();
+
 
   async function handleSubmit() {
     if (!email || !password) {
@@ -31,7 +34,10 @@ export default function Login({ onLogin }) {
         }
       } else {
         const res = await login(email, password);
-        if (res.success && res.token) onLogin();
+
+        if (res.success && res.token) {
+  navigate("/dashboard", { replace: true });
+}
         else setError(res.error || "Login failed");
       }
     } catch (e) {

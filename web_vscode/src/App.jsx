@@ -1,62 +1,54 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Landing from "./pages/landing";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import { isAuthenticated } from "./api/auth";
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("landing"); // landing | login | dashboard
+  const location = useLocation();
 
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(isAuthenticated());
+
+  // 🔥 FIX: re-check auth on every route change
   useEffect(() => {
     const auth = isAuthenticated();
     setAuthenticated(auth);
-    setView(auth ? "dashboard" : "landing");
-    setLoading(false);
-  }, []);
+    setAuthChecked(true);
+  }, [location.pathname]);
 
-  if (loading) {
+  if (!authChecked) {
     return (
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        color: "#666",
-      }}>
+      <div className="flex items-center justify-center h-screen text-gray-400">
         Loading...
       </div>
     );
   }
 
   return (
-    <>
-      {view === "landing" && (
-        <Landing
-          onGetStarted={() =>
-            setView(authenticated ? "dashboard" : "login")
-          }
-        />
-      )}
+    <Routes>
+      {/* Landing */}
+      <Route path="/" element={<Landing />} />
 
-      {view === "login" && (
-        <Login
-          onLogin={() => {
-            setAuthenticated(true);
-            setView("dashboard");
-          }}
-        />
-      )}
+      {/* Login */}
+      <Route
+        path="/login"
+        element={
+          authenticated ? <Navigate to="/dashboard" replace /> : <Login />
+        }
+      />
 
-      {view === "dashboard" && (
-        <Dashboard
-          onLogout={() => {
-            setAuthenticated(false);
-            setView("landing");
-          }}
-        />
-      )}
-    </>
+      {/* Dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          authenticated ? <Dashboard /> : <Navigate to="/login" replace />
+        }
+      />
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

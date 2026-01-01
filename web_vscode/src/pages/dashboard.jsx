@@ -6,6 +6,7 @@ import {
   stopInstance,
 } from "../api/instances";
 import { logout } from "../api/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard({ onLogout }) {
   const [instances, setInstances] = useState([]);
@@ -48,10 +49,12 @@ export default function Dashboard({ onLogout }) {
     setActionLoading((p) => ({ ...p, [id]: null }));
   }
 
-  function handleLogout() {
-    logout();
-    onLogout?.();
-  }
+ const navigate = useNavigate();
+
+function handleLogout() {
+  logout();
+  navigate("/login", { replace: true });
+}
 
   /* ------------ HELPERS ------------ */
   function expiresIn(inst) {
