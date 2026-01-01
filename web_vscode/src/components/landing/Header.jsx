@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-
+import Container from "@/components/layout/Container";
 
 const menuItems = [
   { label: "Platform", href: "#platform" },
@@ -42,7 +42,7 @@ export default function Header() {
             : ""
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <Container className="py-4">
           <nav className="flex items-center justify-between">
             {/* Logo */}
             <motion.div whileHover={{ scale: 1.02 }} className="flex flex-col">
@@ -79,11 +79,11 @@ export default function Header() {
               className="hidden lg:block"
             >
               <Button
-  onClick={() => navigate("/login")}
-  className="bg-gradient-to-r from-purple-600 to-blue-600"
->
-  Get Started
-</Button>
+                onClick={() => navigate("/login")}
+                className="bg-gradient-to-r from-purple-600 to-blue-600"
+                            >
+                              Get Started
+                            </Button>
             </motion.div>
 
             {/* Mobile Menu Toggle */}
@@ -94,7 +94,7 @@ export default function Header() {
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </nav>
-        </div>
+        </Container>
       </motion.header>
 
       {/* Mobile Menu */}

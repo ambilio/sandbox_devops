@@ -3,8 +3,12 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Play, ArrowRight } from 'lucide-react';
 import AnimatedOrb from './AnimatedOrb';
-
+import { useNavigate } from "react-router-dom";
 export default function HeroSection() {
+   const navigate = useNavigate();
+   function handleGetStarted() {
+    navigate("/login");
+  }
   return (
     <section className="relative min-h-screen flex items-center pt-32 lg:pt-44 pb-16 overflow-hidden">
       {/* Background gradient */}
@@ -76,6 +80,9 @@ export default function HeroSection() {
               className="flex flex-wrap gap-4"
             >
               <Button
+              onClick={() => {
+                    handleGetStarted();
+                  }}
                 size="lg"
                 className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 hover:from-purple-500 hover:via-blue-500 hover:to-cyan-500 text-white border-0 px-8 py-6 text-lg group"
               >

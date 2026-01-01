@@ -2,8 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Play, Sparkles } from 'lucide-react';
-
+import { useNavigate } from "react-router-dom";
 export default function CTASection() {
+  const navigate = useNavigate();
+  function handleGetStarted() {
+    navigate("/login");
+  }
   return (
     <section id="pricing" className="py-32 relative overflow-hidden">
       {/* Background elements */}
@@ -52,6 +56,9 @@ export default function CTASection() {
             className="flex flex-col sm:flex-row justify-center gap-4 mb-16"
           >
             <Button
+            onClick={() => {
+                    handleGetStarted();
+                  }}
               size="lg"
               className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 hover:from-purple-500 hover:via-blue-500 hover:to-cyan-500 text-white border-0 px-10 py-7 text-lg group shadow-lg shadow-purple-500/20"
             >

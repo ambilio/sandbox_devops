@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import Container from "@/components/layout/Container";
 
 export default function Footer() {
   return (
     <footer className="py-12 border-t border-white/5">
-      <div className="max-w-7xl mx-auto px-6">
+      <Container>
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
           <motion.div
@@ -43,7 +44,7 @@ export default function Footer() {
             © 2026 Ambilio. All rights reserved.
           </motion.div>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }
