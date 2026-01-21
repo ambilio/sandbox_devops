@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Play, ArrowRight } from 'lucide-react';
 import AnimatedOrb from './AnimatedOrb';
 
-// Fixed URL to main-app (dev: http://localhost:5174/app)
-// All CTAs will go to http://localhost:5174/app/login
-const MAIN_APP_URL = "http://localhost:5174/app";
+// Fixed URL to main-app (prod: http://3.208.28.22/app)
+// All CTAs will go to http://3.208.28.22/app/login
+const MAIN_APP_URL = "http://3.208.28.22/app";
 
 export default function HeroSection() {
   return (
