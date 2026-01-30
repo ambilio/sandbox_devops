@@ -38,7 +38,12 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	if req.Type != "vscode" && req.Type != "jupyter" && req.Type != "mysql" && req.Type != "langflow" && req.Type != "weaviate" {
+	if req.Type != "vscode" &&
+		req.Type != "jupyter" &&
+		req.Type != "mysql" &&
+		req.Type != "langflow" &&
+		req.Type != "weaviate" &&
+		req.Type != "aws" {
 		c.JSON(400, gin.H{"error": "invalid workspace type"})
 		return
 	}
@@ -62,6 +67,55 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
+	/* ================= AWS SPECIAL CASE ================= */
+
+	if req.Type == "aws" {
+		awsSvc, err := docker.NewAWSService()
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		creds, err := awsSvc.AssumeSandboxRole(c, userUUID.String())
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		consoleURL, err := awsSvc.GenerateConsoleURL(creds)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		inst, err := h.q.CreateInstance(c, db.CreateInstanceParams{
+			ID:     instanceID,
+			UserID: userUUID,
+			Type:   "aws",
+			EfsPath: dataPath,
+			TtlHours: req.TTLHours,
+			ConsoleUrl: sql.NullString{
+				String: consoleURL,
+				Valid:  true,
+			},
+			// status will be set to RUNNING by DB trigger
+		})
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(201, gin.H{
+			"id":          inst.ID,
+			"type":        inst.Type,
+			"status":      inst.Status,
+			"console_url": consoleURL,
+		})
+		return
+	}
+
+	/* ================= NON-AWS ================= */
+
 	inst, err := h.q.CreateInstance(c, db.CreateInstanceParams{
 		ID:       instanceID,
 		UserID:   userUUID,
@@ -77,7 +131,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 	c.JSON(201, gin.H{
 		"id":     inst.ID,
 		"type":   inst.Type,
-		"status": "stopped",
+		"status": inst.Status,
 	})
 }
 

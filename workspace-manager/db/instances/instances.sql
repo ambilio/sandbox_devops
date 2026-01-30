@@ -1,10 +1,16 @@
 -- name: CreateInstance :one
 INSERT INTO instances (
-    id, user_id, type, efs_path, ttl_hours
+    id,
+    user_id,
+    type,
+    efs_path,
+    ttl_hours,
+    console_url
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 )
 RETURNING *;
+
 
 
 -- name: UpdateInstanceOnStart :one

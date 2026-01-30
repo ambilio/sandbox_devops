@@ -44,4 +44,6 @@ DROP CONSTRAINT instances_type_check;
 
 ALTER TABLE instances
 ADD CONSTRAINT instances_type_check
-CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow', 'weaviate'));
+CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow', 'weaviate','aws'));
+
+ALTER TABLE instances ADD COLUMN console_url TEXT;

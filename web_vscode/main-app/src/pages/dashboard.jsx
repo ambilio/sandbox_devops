@@ -133,6 +133,10 @@ function handleLogout() {
               <div className="icon">🧬</div>
               <span>Create Weaviate</span>
             </div>
+            <div className="create-btn aws" onClick={() => handleCreate("aws")}>
+                <div className="icon">☁️</div>
+                <span>Create AWS Sandbox</span>
+            </div>
           </div>
         </header>
 
@@ -175,6 +179,7 @@ function handleLogout() {
                         mysql: "MySQL",
                         langflow: "Langflow",
                         weaviate: "Weaviate",
+                        aws: "AWS Sandbox",
                       }[inst.type]}
                     </h3>
                     <span
@@ -192,32 +197,50 @@ function handleLogout() {
                     </div>
                   )}
 
-                  {inst.status === "running" && workspaceUrl(inst) && (
-                    <a
-                      className="open"
-                      href={workspaceUrl(inst)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open Workspace →
-                    </a>
-                  )}
+                        {inst.status === "running" &&
+                          inst.type === "aws" &&
+                          inst.console_url?.Valid && (
+                            <a
+                              className="open"
+                              href={inst.console_url.String}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open AWS Console →
+                            </a>
+                          )}
 
-                  <div className="card-actions">
-                    <button
-                      onClick={() => handleStart(inst.id)}
-                      disabled={inst.status === "running" || busy}
-                    >
-                      Start
-                    </button>
-                    <button
-                      className="danger"
-                      onClick={() => handleStop(inst.id)}
-                      disabled={inst.status === "stopped" || busy}
-                    >
-                      Stop
-                    </button>
-                  </div>
+
+               {inst.status === "running" && inst.type !== "aws" && workspaceUrl(inst) && (
+                <a
+                  className="open"
+                  href={workspaceUrl(inst)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Workspace →
+                </a>
+               )}
+
+
+                  {inst.type !== "aws" && (
+  <div className="card-actions">
+    <button
+      onClick={() => handleStart(inst.id)}
+      disabled={inst.status === "running" || busy}
+    >
+      Start
+    </button>
+    <button
+      className="danger"
+      onClick={() => handleStop(inst.id)}
+      disabled={inst.status === "stopped" || busy}
+    >
+      Stop
+    </button>
+  </div>
+)}
+
                 </div>
               );
             })}
@@ -719,6 +742,10 @@ const css = `
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.create-btn.aws {
+  background: linear-gradient(135deg, #ff9900, #ec7211);
 }
 
 .slider-btn {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type DockerManager struct{}
@@ -16,6 +17,8 @@ func NewDockerManager() *DockerManager {
 type RunResult struct {
 	ContainerID string
 	HostPort    string
+	ConsoleURL string
+	ExpiresAt  time.Time
 }
 
 func (d *DockerManager) Run(
@@ -39,13 +42,41 @@ func (d *DockerManager) Run(
 	case "mysql":
 		return d.runMySQL(ctx, instanceID, dataPath)
 	case "weaviate":
-  return d.runWeaviate(ctx, instanceID, dataPath)
-
+  		return d.runWeaviate(ctx, instanceID, dataPath)
+	case "aws":
+    	return d.runAWS(ctx, instanceID)
 	default:
 		return nil, fmt.Errorf("unknown workspace type: %s", workspaceType)
 	}
 }
 
+
+
+func (d *DockerManager) runAWS(
+	ctx context.Context,
+	instanceID string,
+) (*RunResult, error) {
+
+	awsSvc, err := NewAWSService()
+	if err != nil {
+		return nil, err
+	}
+
+	creds, err := awsSvc.AssumeSandboxRole(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	consoleURL, err := awsSvc.GenerateConsoleURL(creds)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RunResult{
+		ConsoleURL: consoleURL,
+		ExpiresAt: *creds.Expiration,
+	}, nil
+}
 
 func (d *DockerManager) runSingle(
 	ctx context.Context,

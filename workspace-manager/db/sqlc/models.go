@@ -22,6 +22,7 @@ type Instances struct {
 	TtlHours    int32          `json:"ttl_hours"`
 	LastActive  time.Time      `json:"last_active"`
 	CreatedAt   time.Time      `json:"created_at"`
+	ConsoleUrl  sql.NullString `json:"console_url"`
 }
 
 type Users struct {

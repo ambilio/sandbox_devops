@@ -39,7 +39,7 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			return
 		}
 
-		port := "80" // nginx in all workspaces
+		port := "80" 
 		targetURL, err := url.Parse(
 			"http://" + inst.ContainerID.String + ":" + port,
 		)
@@ -55,7 +55,6 @@ func WorkspaceProxy(cfg *util.Config, q *db.Queries) gin.HandlerFunc {
 			req.URL.Host = targetURL.Host
 			req.Host = targetURL.Host
 
-			// 🔑 key fix
 			req.URL.Path = "/"
 		}
 
