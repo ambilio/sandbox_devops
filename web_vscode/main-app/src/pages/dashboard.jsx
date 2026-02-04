@@ -244,6 +244,41 @@ function handleLogout() {
     </div>
 )}
 
+{inst.status === "running" &&
+  inst.type !== "aws" &&
+  workspaceUrl(inst) && (
+    <a
+      className="open"
+      href={workspaceUrl(inst)}
+      target="_blank"
+      rel="noreferrer"
+    >
+      Open Workspace →
+    </a>
+)}
+
+<div className="card-actions">
+  {inst.status !== "running" ? (
+    <button
+      disabled={busy}
+      className={busy === "start" ? "pulse" : ""}
+      onClick={() => handleStart(inst.id)}
+    >
+      {busy === "start" ? "Starting…" : "Start"}
+    </button>
+  ) : (
+    <button
+      disabled={busy}
+      className="danger"
+      onClick={() => handleStop(inst.id)}
+    >
+      {busy === "stop" ? "Stopping…" : "Stop"}
+    </button>
+  )}
+</div>
+
+
+
 
 
                 </div>

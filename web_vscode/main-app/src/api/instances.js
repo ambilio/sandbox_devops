@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "http://3.208.28.22:8080";
+const BASE = import.meta.env.VITE_API_URL || "http://3.208.28.22:8080/app";
 
 async function getAuthHeaders() {
   const token = localStorage.getItem("token");
