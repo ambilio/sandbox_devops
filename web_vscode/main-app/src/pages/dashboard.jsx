@@ -13,9 +13,9 @@ export default function Dashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
-  const [view, setView] = useState("all"); // all | my
+  const [view, setView] = useState("all"); 
+  const [showPassword, setShowPassword] = useState({});
 
-  /* ------------ LOAD ------------ */
   async function load() {
     setLoading(true);
     const res = await listInstances();
@@ -75,6 +75,13 @@ function handleLogout() {
     if (!inst?.host_port?.Valid) return null;
     return inst.host_port.Int32;
   }
+  function togglePassword(id) {
+  setShowPassword((prev) => ({
+    ...prev,
+    [id]: !prev[id],
+  }));
+}
+
 
   function workspaceUrl(inst) {
     const port = getHostPort(inst);
@@ -210,36 +217,34 @@ function handleLogout() {
                             </a>
                           )}
 
+                        {inst.status === "running" &&
+  inst.type === "aws" &&
+  inst.aws_username?.Valid &&
+  inst.aws_password?.Valid && (
+    <div className="aws-creds">
+      <div className="cred">
+        <span>IAM Username</span>
+        <code>{inst.aws_username.String}</code>
+      </div>
 
-               {inst.status === "running" && inst.type !== "aws" && workspaceUrl(inst) && (
-                <a
-                  className="open"
-                  href={workspaceUrl(inst)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Workspace →
-                </a>
-               )}
-
-
-                  {inst.type !== "aws" && (
-  <div className="card-actions">
-    <button
-      onClick={() => handleStart(inst.id)}
-      disabled={inst.status === "running" || busy}
-    >
-      Start
-    </button>
-    <button
-      className="danger"
-      onClick={() => handleStop(inst.id)}
-      disabled={inst.status === "stopped" || busy}
-    >
-      Stop
-    </button>
-  </div>
+      <div className="cred">
+        <span>Password</span>
+        <code>
+          {showPassword[inst.id]
+            ? inst.aws_password.String
+            : "••••••••"}
+        </code>
+        <button
+          onClick={() => togglePassword(inst.id)}
+          style={{ marginLeft: "8px" }}
+        >
+          {showPassword[inst.id] ? "Hide" : "Show"}
+        </button>
+      </div>
+    </div>
 )}
+
+
 
                 </div>
               );
@@ -416,12 +421,51 @@ const css = `
   100%{opacity:1}
 }
 
+.aws-creds {
+  margin-top: 14px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.aws-creds .cred {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.aws-creds .cred span {
+  color: #555;
+  font-weight: 600;
+}
+
+.aws-creds code {
+  background: #111827;
+  color: #e5e7eb;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: monospace;
+}
+
+
 .open {
   display:inline-block;
   margin-top:12px;
   color:#6c63ff;
   font-weight:600;
   text-decoration:none;
+}
+
+.aws-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.aws-link:hover {
+  text-decoration: underline;
 }
 
 .card-actions {

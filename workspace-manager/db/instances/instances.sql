@@ -5,9 +5,11 @@ INSERT INTO instances (
     type,
     efs_path,
     ttl_hours,
-    console_url
+    console_url,
+    aws_username,
+    aws_password
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING *;
 
@@ -21,7 +23,9 @@ SET
     status = 'running',
     last_active = NOW()
 WHERE id = $1
+  AND type != 'aws'
 RETURNING *;
+
 
 
 
@@ -75,8 +79,10 @@ WHERE
 UPDATE instances
 SET
   status = 'stopped',
-  task_arn = NULL,
-  container_ip = NULL,
+  container_id = NULL,
+  host_port = NULL,
   last_active = NOW()
-WHERE id = $1;
+WHERE id = $1
+  AND type != 'aws';
+
 

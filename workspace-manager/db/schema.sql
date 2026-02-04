@@ -47,3 +47,16 @@ ADD CONSTRAINT instances_type_check
 CHECK (type IN ('vscode', 'jupyter', 'mysql', 'langflow', 'weaviate','aws'));
 
 ALTER TABLE instances ADD COLUMN console_url TEXT;
+
+
+ALTER TABLE instances
+ADD COLUMN aws_username TEXT,
+ADD COLUMN aws_password TEXT;
+
+ALTER TABLE instances
+ADD CONSTRAINT aws_no_container
+CHECK (
+  type != 'aws'
+  OR (container_id IS NULL AND host_port IS NULL)
+);
+

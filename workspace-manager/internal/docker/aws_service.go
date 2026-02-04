@@ -2,18 +2,16 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/url"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/aws/aws-sdk-go-v2/service/sts/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
 type AWSService struct {
-	sts *sts.Client
+	iam *iam.Client
 }
 
 func NewAWSService() (*AWSService, error) {
@@ -22,63 +20,48 @@ func NewAWSService() (*AWSService, error) {
 		return nil, err
 	}
 	return &AWSService{
-		sts: sts.NewFromConfig(cfg),
+		iam: iam.NewFromConfig(cfg),
 	}, nil
 }
 
-func (a *AWSService) AssumeSandboxRole(
+
+func (a *AWSService) CreateSandboxUser(
 	ctx context.Context,
-	userID string,
-) (*types.Credentials, error) {
+	instanceID string,
+) (username, password, consoleURL string, err error) {
 
-	roleArn := "arn:aws:iam::921646896924:role/sandbox-console-role"
+	username = "ambilio-" + instanceID
 
-	out, err := a.sts.AssumeRole(ctx, &sts.AssumeRoleInput{
-		RoleArn:         aws.String(roleArn),
-		RoleSessionName: aws.String("sandbox-" + userID),
-		DurationSeconds: aws.Int32(3600),
+	_, err = a.iam.CreateUser(ctx, &iam.CreateUserInput{
+		UserName: aws.String(username),
+		PermissionsBoundary: aws.String(
+			"arn:aws:iam::921646896924:policy/ambilio-sandbox-boundary",
+		),
 	})
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return out.Credentials, nil
+	password = generatePassword()
+
+	_, err = a.iam.CreateLoginProfile(ctx, &iam.CreateLoginProfileInput{
+		UserName:              aws.String(username),
+		Password:              aws.String(password),
+		PasswordResetRequired: false,
+	})
+	if err != nil {
+		return
+	}
+
+	consoleURL = "https://921646896924.signin.aws.amazon.com/console"
+	return
 }
 
-func (a *AWSService) GenerateConsoleURL(
-	creds *types.Credentials,
-) (string, error) {
 
-	session := map[string]string{
-		"sessionId":    aws.ToString(creds.AccessKeyId),
-		"sessionKey":   aws.ToString(creds.SecretAccessKey),
-		"sessionToken": aws.ToString(creds.SessionToken),
-	}
 
-	b, _ := json.Marshal(session)
 
-	resp, err := http.Get(
-		"https://signin.aws.amazon.com/federation" +
-			"?Action=getSigninToken" +
-			"&Session=" + url.QueryEscape(string(b)),
-	)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var out struct {
-		SigninToken string `json:"SigninToken"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", err
-	}
-
-	loginURL :=
-		"https://signin.aws.amazon.com/federation" +
-			"?Action=login" +
-			"&Destination=https://console.aws.amazon.com/" +
-			"&SigninToken=" + out.SigninToken
-
-	return loginURL, nil
+func generatePassword() string {
+	b := make([]byte, 24)
+	rand.Read(b)
+	return base64.RawStdEncoding.EncodeToString(b)
 }

@@ -41,42 +41,19 @@ func (d *DockerManager) Run(
 
 	case "mysql":
 		return d.runMySQL(ctx, instanceID, dataPath)
+
 	case "weaviate":
-  		return d.runWeaviate(ctx, instanceID, dataPath)
-	case "aws":
-    	return d.runAWS(ctx, instanceID)
+		return d.runWeaviate(ctx, instanceID, dataPath)
+
 	default:
-		return nil, fmt.Errorf("unknown workspace type: %s", workspaceType)
+		return nil, fmt.Errorf("unknown or unsupported runtime type: %s", workspaceType)
 	}
 }
 
 
 
-func (d *DockerManager) runAWS(
-	ctx context.Context,
-	instanceID string,
-) (*RunResult, error) {
 
-	awsSvc, err := NewAWSService()
-	if err != nil {
-		return nil, err
-	}
 
-	creds, err := awsSvc.AssumeSandboxRole(ctx, instanceID)
-	if err != nil {
-		return nil, err
-	}
-
-	consoleURL, err := awsSvc.GenerateConsoleURL(creds)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RunResult{
-		ConsoleURL: consoleURL,
-		ExpiresAt: *creds.Expiration,
-	}, nil
-}
 
 func (d *DockerManager) runSingle(
 	ctx context.Context,

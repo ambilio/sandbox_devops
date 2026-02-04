@@ -23,6 +23,8 @@ type Instances struct {
 	LastActive  time.Time      `json:"last_active"`
 	CreatedAt   time.Time      `json:"created_at"`
 	ConsoleUrl  sql.NullString `json:"console_url"`
+	AwsUsername sql.NullString `json:"aws_username"`
+	AwsPassword sql.NullString `json:"aws_password"`
 }
 
 type Users struct {

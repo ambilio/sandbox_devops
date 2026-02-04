@@ -38,16 +38,6 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	if req.Type != "vscode" &&
-		req.Type != "jupyter" &&
-		req.Type != "mysql" &&
-		req.Type != "langflow" &&
-		req.Type != "weaviate" &&
-		req.Type != "aws" {
-		c.JSON(400, gin.H{"error": "invalid workspace type"})
-		return
-	}
-
 	userUUID, err := uuid.Parse(c.GetString("userID"))
 	if err != nil {
 		c.JSON(401, gin.H{"error": "unauthorized"})
@@ -67,8 +57,6 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	/* ================= AWS SPECIAL CASE ================= */
-
 	if req.Type == "aws" {
 		awsSvc, err := docker.NewAWSService()
 		if err != nil {
@@ -76,45 +64,32 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 			return
 		}
 
-		creds, err := awsSvc.AssumeSandboxRole(c, userUUID.String())
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		consoleURL, err := awsSvc.GenerateConsoleURL(creds)
+		username, password, consoleURL, err :=
+			awsSvc.CreateSandboxUser(c.Request.Context(), instanceID.String())
 		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
 		inst, err := h.q.CreateInstance(c, db.CreateInstanceParams{
-			ID:     instanceID,
-			UserID: userUUID,
-			Type:   "aws",
-			EfsPath: dataPath,
+			ID:       instanceID,
+			UserID:   userUUID,
+			Type:     "aws",
+			EfsPath:  dataPath,
 			TtlHours: req.TTLHours,
-			ConsoleUrl: sql.NullString{
-				String: consoleURL,
-				Valid:  true,
-			},
-			// status will be set to RUNNING by DB trigger
+
+			ConsoleUrl: sql.NullString{String: consoleURL, Valid: true},
+			AwsUsername: sql.NullString{String: username, Valid: true},
+			AwsPassword: sql.NullString{String: password, Valid: true},
 		})
 		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(201, gin.H{
-			"id":          inst.ID,
-			"type":        inst.Type,
-			"status":      inst.Status,
-			"console_url": consoleURL,
-		})
+		c.JSON(201, inst)
 		return
 	}
-
-	/* ================= NON-AWS ================= */
 
 	inst, err := h.q.CreateInstance(c, db.CreateInstanceParams{
 		ID:       instanceID,
@@ -128,11 +103,7 @@ func (h *InstanceHandler) CreateInstance(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{
-		"id":     inst.ID,
-		"type":   inst.Type,
-		"status": inst.Status,
-	})
+	c.JSON(201, inst)
 }
 
 
@@ -149,8 +120,13 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		return
 	}
 
+	if inst.Type == "aws" {
+		c.JSON(400, gin.H{"error": "aws instances do not start"})
+		return
+	}
+
 	if inst.Status == "running" {
-		c.JSON(200, gin.H{"message": "already running"})
+		c.JSON(200, inst)
 		return
 	}
 
@@ -171,7 +147,7 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	_, err = h.q.UpdateInstanceOnStart(c, db.UpdateInstanceOnStartParams{
+	inst, err = h.q.UpdateInstanceOnStart(c, db.UpdateInstanceOnStartParams{
 		ID: inst.ID,
 		ContainerID: sql.NullString{
 			String: result.ContainerID,
@@ -187,14 +163,8 @@ func (h *InstanceHandler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"id":     inst.ID,
-		"type":   inst.Type,
-		"status": "running",
-		"port":   port,
-	})
+	c.JSON(200, inst)
 }
-
 
 
 func (h *InstanceHandler) StopInstance(c *gin.Context) {
@@ -210,14 +180,19 @@ func (h *InstanceHandler) StopInstance(c *gin.Context) {
 		return
 	}
 
+	if inst.Type == "aws" {
+		c.JSON(400, gin.H{"error": "aws instances cannot be stopped"})
+		return
+	}
+
 	h.docker.Stop(inst.ID.String(), inst.Type)
 
-	_, _ = h.q.UpdateInstanceStatus(c, db.UpdateInstanceStatusParams{
+	inst, _ = h.q.UpdateInstanceStatus(c, db.UpdateInstanceStatusParams{
 		ID:     inst.ID,
 		Status: "stopped",
 	})
 
-	c.JSON(200, gin.H{"message": "stopped"})
+	c.JSON(200, inst)
 }
 
 
